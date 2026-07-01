@@ -33,11 +33,12 @@ h1 {
     color: var(--accent-color);
 }
 
-.generator {
+.main-layout {
     display: flex;
     flex-wrap: wrap;
     gap: 2rem;
     justify-content: center;
+    align-items: flex-start;
 }
 
 .controls {
@@ -49,8 +50,33 @@ h1 {
     flex: 1;
 }
 
+.right-column {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    min-width: 325px;
+}
+
+.right-column .control-group {
+    background-color: var(--control-bg);
+    padding: 1.5rem;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.right-column h3 {
+    margin-top: 0;
+    font-size: 1.2rem;
+    color: var(--primary-color);
+    text-align: center;
+}
+
 .control-group {
     margin-bottom: 1.5rem;
+}
+
+.controls .control-group:last-child {
+    margin-bottom: 0;
 }
 
 .control-group label {
@@ -122,6 +148,30 @@ input[type="color"]::-moz-color-swatch {
     font-size: 0.9rem;
 }
 
+.tile-size-inputs {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+}
+
+.tile-size-inputs input {
+    width: 60px;
+    padding: 0.5rem;
+    text-align: center;
+    background-color: var(--bg-color);
+    color: var(--primary-color);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 1rem;
+}
+
+.tile-size-inputs span {
+    font-size: 1rem;
+    color: var(--primary-color);
+}
+
+
 .remove-color-btn, .add-btn {
     padding: 0.3rem 0.6rem;
     font-size: 0.9rem;
@@ -188,16 +238,20 @@ button {
     background-color: var(--border-color);
 }
 
-.preview {
+.preview-container {
     display: flex;
     flex-direction: column;
     align-items: center;
+    background-color: var(--control-bg);
+    padding: 1.5rem;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
 }
 
 #tile-canvas {
     border: 2px solid var(--border-color);
     border-radius: 4px;
-    background-color: var(--control-bg);
+    background-color: var(--bg-color);
     image-rendering: pixelated; /* Ensures crisp pixels on zoom */
     width: 320px;
     height: 320px;
@@ -215,10 +269,25 @@ button {
     align-items: center;
 }
 
+
 #image-preview {
     max-width: 100%;
     max-height: 100px;
     display: block; /* Ensure it respects max-width/height */
+    object-fit: contain;
+    border-radius: 2px;
+}
+
+#post-processing-options-group h3 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    color: var(--primary-color);
+}
+
+#transition-image-preview {
+    max-width: 100%;
+    max-height: 100px;
+    display: block;
     object-fit: contain;
     border-radius: 2px;
 }

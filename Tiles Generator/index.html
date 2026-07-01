@@ -11,7 +11,7 @@
     <div class="container">
         <h1>Prozeduraler 32x32 Tile-Generator</h1>
 
-        <main class="generator">
+        <main class="main-layout">
             <div class="controls">
                 <h2>Steuerung</h2>
                 
@@ -79,16 +79,6 @@
                 </div>
 
                 <div class="control-group">
-                    <label>Tile-Größe</label>
-                    <div class="tile-size-inputs">
-                        <label for="tile-width">Breite:</label>
-                        <input type="number" id="tile-width" value="32" min="1" max="256">
-                        <label for="tile-height">Höhe:</label>
-                        <input type="number" id="tile-height" value="32" min="1" max="256">
-                    </div>
-                </div>
-
-                <div class="control-group">
                     <label>Farbpalette & Häufigkeit</label>
                     <div id="color-palette-container">
                         <!-- Colors will be dynamically added here -->
@@ -102,13 +92,60 @@
                 </div>
             </div>
 
-            <div class="preview">
-                <h2>Vorschau</h2>
-                <canvas id="tile-canvas" width="320" height="320"></canvas>
+            <div class="right-column">
+                <div class="preview-container">
+                    <h2>Vorschau</h2>
+                    <canvas id="tile-canvas" width="320" height="320"></canvas>
+                </div>
+
+                <div class="control-group">
+                    <h3>Tile-Grösse</h3>
+                    <div class="tile-size-inputs">
+                        <input type="number" id="tile-width" value="32" min="1" max="256">
+                        <span>x</span>
+                        <input type="number" id="tile-height" value="32" min="1" max="256">
+                        <span>Pixel</span>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label for="post-processing-toggle">
+                        <input type="checkbox" id="post-processing-toggle">
+                        Nachbearbeitung aktivieren
+                    </label>
+                </div>
+
+                <div id="post-processing-options-group" class="control-group" hidden>
+                    <h3>Nachbearbeitung Optionen</h3>
+                    <div class="control-group">
+                        <label for="seamless-tiling-toggle">
+                            <input type="checkbox" id="seamless-tiling-toggle">
+                            Nahtloses Kacheln
+                        </label>
+                    </div>
+
+                    <div class="control-group">
+                        <label for="transition-to-image-toggle">
+                            <input type="checkbox" id="transition-to-image-toggle">
+                            Übergang zu Bild
+                        </label>
+                        <div id="transition-image-controls" class="control-group" hidden>
+                            <label for="transition-image-upload">Bild für Übergang hochladen:</label>
+                            <input type="file" id="transition-image-upload" accept="image/*">
+                            <div class="image-preview-container">
+                                <img id="transition-image-preview" src="#" alt="Transition Image Preview" style="max-width: 100px; max-height: 100px; display: none;">
+                            </div>
+                            <label for="transition-strength">Übergangsstärke:</label>
+                            <input type="range" id="transition-strength" value="50" min="0" max="100" step="1">
+                            <span id="transition-strength-value">50%</span>
+                        </div>
+                    </div>
+                </div>
             </div>
         </main>
     </div>
 
     <script src="script.js"></script>
+    <script src="postprocessing.js"></script>
 </body>
 </html>

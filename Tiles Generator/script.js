@@ -108,9 +108,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const imagePreview = document.getElementById('image-preview');
     const imageContrastInput = document.getElementById('image-contrast');
     const imageContrastValueSpan = document.getElementById('image-contrast-value');
+    // Post-Processing DOM Elements
+    const postProcessingToggle = document.getElementById('post-processing-toggle');
+    const postProcessingOptionsGroup = document.getElementById('post-processing-options-group');
+    const seamlessTilingToggle = document.getElementById('seamless-tiling-toggle');
+    const transitionToImageToggle = document.getElementById('transition-to-image-toggle');
+    const transitionImageControls = document.getElementById('transition-image-controls');
+    const transitionImageUpload = document.getElementById('transition-image-upload');
+    const transitionImagePreview = document.getElementById('transition-image-preview');
+    const transitionStrengthInput = document.getElementById('transition-strength');
+    const transitionStrengthValueSpan = document.getElementById('transition-strength-value');
 
     let grid = [];
     let imageNoiseData = null; // To store processed image pixel data
+    let transitionImageData = null; // To store processed transition image pixel data
 
     // --- Color Management ---
 
@@ -152,7 +163,50 @@ document.addEventListener('DOMContentLoaded', () => {
         return colors[colors.length - 1]?.color || '#000000';
     }
 
-    // --- Image Noise Filter Logic ---
+    function loadImageAsTransitionData(file) {
+        if (!file) {
+            transitionImageData = null;
+            transitionImagePreview.src = '#';
+            transitionImagePreview.style.display = 'none';
+            generateAndRender();
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                const tileWidth = parseInt(tileWidthInput.value, 10);
+                const tileHeight = parseInt(tileHeightInput.value, 10);
+
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = tileWidth;
+                tempCanvas.height = tileHeight;
+                const tempCtx = tempCanvas.getContext('2d');
+
+                tempCtx.drawImage(img, 0, 0, tileWidth, tileHeight);
+
+                const imageData = tempCtx.getImageData(0, 0, tileWidth, tileHeight).data;
+                const newTransitionImageData = [];
+
+                for (let i = 0; i < imageData.length; i += 4) {
+                    newTransitionImageData.push({
+                        r: imageData[i],
+                        g: imageData[i + 1],
+                        b: imageData[i + 2],
+                        a: imageData[i + 3]
+                    });
+                }
+                transitionImageData = newTransitionImageData;
+                transitionImagePreview.src = e.target.result;
+                transitionImagePreview.style.display = 'block';
+                generateAndRender();
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
     function loadImageAsNoiseData(file) {
         if (!file) {
             imageNoiseData = null;
@@ -507,6 +561,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         applySymmetry(symmetry, tileWidth, tileHeight);
+
+        // --- Post-processing ---
+        if (postProcessingToggle.checked) {
+            if (seamlessTilingToggle.checked) {
+                grid = applySeamlessTiling(grid, tileWidth, tileHeight);
+            }
+
+            if (transitionToImageToggle.checked && transitionImageData) {
+                const transitionStrength = parseInt(transitionStrengthInput.value, 10);
+                grid = applyImageTransition(grid, transitionImageData, tileWidth, tileHeight, transitionStrength, noiseGenerator.perlinNoise);
+            }
+        }
+
         renderTile(pixelScaleX, pixelScaleY, tileWidth, tileHeight);
     }
     
@@ -608,6 +675,25 @@ document.addEventListener('DOMContentLoaded', () => {
         generateAndRender();
     });
 
+    postProcessingToggle.addEventListener('change', () => {
+        postProcessingOptionsGroup.hidden = !postProcessingToggle.checked;
+        generateAndRender();
+    });
+
+    transitionToImageToggle.addEventListener('change', () => {
+        transitionImageControls.hidden = !transitionToImageToggle.checked;
+        generateAndRender();
+    });
+
+    transitionStrengthInput.addEventListener('input', () => {
+        transitionStrengthValueSpan.textContent = transitionStrengthInput.value + '%';
+        generateAndRender();
+    });
+
+    transitionImageUpload.addEventListener('change', (e) => {
+        loadImageAsTransitionData(e.target.files[0]);
+    });
+
     algorithmSelect.addEventListener('change', () => {
         // Hide all algorithm-specific option groups
         voronoiOptionsGroup.hidden = true;
@@ -642,10 +728,12 @@ document.addEventListener('DOMContentLoaded', () => {
              paletteContainer.appendChild(newEntry);
         });
         
-        // Set initial visibility for algorithm-specific options
-        // Hide all first
         voronoiOptionsGroup.hidden = true;
         clusterOptionsGroup.hidden = true;
+        waterOptionsGroup.hidden = true;
+        imageOptionsGroup.hidden = true;
+        postProcessingOptionsGroup.hidden = true;
+        transitionImageControls.hidden = true;
 
         // Then show the one corresponding to the initially selected algorithm
         if (algorithmSelect.value === 'voronoi') {
