@@ -1,0 +1,304 @@
+:root {
+    --bg-color: #1a1b26;
+    --primary-color: #a9b1d6;
+    --control-bg: #24283b;
+    --border-color: #414868;
+    --accent-color: #7aa2f7;
+    --button-hover-bg: #414868;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--primary-color);
+    margin: 0;
+    padding: 2rem;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+}
+
+.container {
+    width: 100%;
+    max-width: 1300px;
+}
+
+h1, h2 {
+    text-align: center;
+    font-weight: 500;
+}
+
+h1 {
+    color: var(--accent-color);
+}
+
+.main-layout {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2rem;
+    justify-content: center;
+    align-items: flex-start;
+}
+
+.controls, .blob-generator-container {
+    background-color: var(--control-bg);
+    padding: 1.5rem;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    min-width: 300px;
+    flex: 1;
+}
+
+.right-column {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    min-width: 325px;
+}
+
+.right-column .control-group {
+    background-color: var(--control-bg);
+    padding: 1.5rem;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.right-column h3 {
+    margin-top: 0;
+    font-size: 1.2rem;
+    color: var(--primary-color);
+    text-align: center;
+}
+
+.control-group {
+    margin-bottom: 1.5rem;
+}
+
+.controls .control-group:last-child {
+    margin-bottom: 0;
+}
+
+.control-group label {
+    display: block;
+    margin-bottom: 0.75rem;
+    font-weight: 500;
+}
+
+select, input[type="range"], input[type="file"] {
+    width: 100%;
+    padding: 0.5rem;
+    background-color: var(--bg-color);
+    color: var(--primary-color);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 1rem;
+}
+
+input[type="file"] {
+    cursor: pointer;
+}
+
+select {
+    cursor: pointer;
+}
+
+input[type="range"] {
+    padding: 0;
+}
+
+#color-palette-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.color-entry {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem;
+    border-radius: 4px;
+    background-color: #2a2f44; /* Slightly lighter than control-bg */
+}
+
+input[type="color"] {
+    min-width: 44px;
+    height: 44px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 2px;
+    background-color: transparent;
+    cursor: pointer;
+}
+/* Hides the color picker's native text/hex value */
+input[type="color"]::-webkit-color-swatch {
+  border: none;
+  border-radius: 4px;
+}
+input[type="color"]::-moz-color-swatch {
+  border: none;
+  border-radius: 4px;
+}
+
+.color-entry .frequency-slider {
+    flex-grow: 1;
+    margin: 0;
+}
+
+.color-entry .frequency-value {
+    min-width: 25px;
+    text-align: right;
+    font-size: 0.9rem;
+}
+
+.tile-size-inputs {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+}
+
+.tile-size-inputs input {
+    width: 60px;
+    padding: 0.5rem;
+    text-align: center;
+    background-color: var(--bg-color);
+    color: var(--primary-color);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 1rem;
+}
+
+.tile-size-inputs span {
+    font-size: 1rem;
+    color: var(--primary-color);
+}
+
+
+.remove-color-btn, .add-btn {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.9rem;
+    border-radius: 4px;
+    cursor: pointer;
+    border: 1px solid transparent;
+}
+
+.remove-color-btn {
+    background-color: #b13e53; /* Reddish */
+    color: white;
+    font-weight: bold;
+    border: none;
+}
+.remove-color-btn:hover {
+    opacity: 0.9;
+}
+
+.add-btn {
+    background: transparent;
+    color: var(--accent-color);
+    border: 1px dashed var(--border-color);
+    width: 100%;
+    margin-top: 1rem;
+    padding: 0.5rem;
+}
+.add-btn:hover {
+    background-color: var(--button-hover-bg);
+}
+
+
+.button-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-top: 2rem;
+}
+
+button {
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+    font-weight: 600;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+#generate-btn, #blob-generate-btn {
+    background-color: var(--accent-color);
+    color: var(--bg-color);
+}
+
+#generate-btn:hover, #blob-generate-btn:hover {
+    opacity: 0.9;
+}
+
+#export-btn, #blob-export-btn {
+    background-color: var(--button-hover-bg);
+    color: var(--primary-color);
+}
+
+#export-btn:hover, #blob-export-btn:hover {
+    background-color: var(--border-color);
+}
+
+.preview-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background-color: var(--control-bg);
+    padding: 1.5rem;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.blob-generator-container .preview-container {
+    background-color: transparent;
+    border: none;
+    padding: 0;
+    margin-top: 1.5rem;
+}
+
+#tile-canvas, #blob-canvas {
+    border: 2px solid var(--border-color);
+    border-radius: 4px;
+    background-color: var(--bg-color);
+    image-rendering: pixelated; /* Ensures crisp pixels on zoom */
+    width: 320px;
+    height: 320px;
+}
+
+/* New styles for Image Noise Filter */
+.image-preview-container {
+    margin-top: 1rem;
+    border: 1px dashed var(--border-color);
+    padding: 0.5rem;
+    border-radius: 4px;
+    min-height: 100px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+
+#image-preview, #blob-center-preview, #blob-edge-preview {
+    max-width: 100%;
+    max-height: 100px;
+    display: block; /* Ensure it respects max-width/height */
+    object-fit: contain;
+    border-radius: 2px;
+}
+
+#post-processing-options-group h3 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    color: var(--primary-color);
+}
+
+#transition-image-preview {
+    max-width: 100%;
+    max-height: 100px;
+    display: block;
+    object-fit: contain;
+    border-radius: 2px;
+}

@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prozeduraler Tile-Generator</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div class="container">
+        <h1>Prozeduraler Tile-Generator & Blob-Generator</h1>
+
+        <main class="main-layout">
+            <!-- ===== Column 1: Main Generator Controls ===== -->
+            <div class="controls">
+                <h2>Steuerung</h2>
+                
+                <div class="control-group">
+                    <label for="symmetry">Symmetrie</label>
+                    <select id="symmetry">
+                        <option value="none" selected>Keine</option>
+                        <option value="vertical">Vertikal</option>
+                        <option value="horizontal">Horizontal</option>
+                        <option value="quadrant">Quadrant</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label for="algorithm">Generierungs-Algorithmus</label>
+                    <select id="algorithm">
+                        <option value="scatter" selected>Verstreut</option>
+                        <option value="cluster">Cluster (Perlin Noise)</option>
+                        <option value="voronoi">Pflasterstein (Voronoi)</option>
+                        <option value="water">Wasser (Wellen)</option>
+                        <option value="image">Bild (Noise Filter)</option>
+                    </select>
+                </div>
+
+                <div id="voronoi-options-group" class="control-group" hidden>
+                    <label for="voronoi-borders-toggle">
+                        <input type="checkbox" id="voronoi-borders-toggle">
+                        Voronoi-Ränder anzeigen
+                    </label>
+                    <div class="voronoi-cell-count-control">
+                        <label for="voronoi-cell-count">Anzahl Voronoi-Zellen:</label>
+                        <input type="number" id="voronoi-cell-count" value="30" min="1" max="256">
+                    </div>
+                </div>
+
+                <div id="cluster-options-group" class="control-group" hidden>
+                    <label for="cluster-noise-zoom">Rausch-Skala (Zoom):</label>
+                    <input type="range" id="cluster-noise-zoom" value="10" min="1" max="50" step="1">
+                    <span id="cluster-noise-zoom-value">10</span>
+                </div>
+
+                <div id="water-options-group" class="control-group" hidden>
+                    <label for="water-noise-zoom">Rausch-Skala (Zoom):</label>
+                    <input type="range" id="water-noise-zoom" value="5" min="1" max="20" step="1">
+                    <span id="water-noise-zoom-value">5</span>
+
+                    <label for="water-wave-frequency">Wellen-Frequenz:</label>
+                    <input type="range" id="water-wave-frequency" value="50" min="0" max="100" step="1">
+                    <span id="water-wave-frequency-value">0.50</span>
+
+                    <label for="water-wave-amplitude">Wellen-Amplitude:</label>
+                    <input type="range" id="water-wave-amplitude" value="50" min="0" max="100" step="1">
+                    <span id="water-wave-amplitude-value">0.50</span>
+                </div>
+                
+                <div id="image-options-group" class="control-group" hidden>
+                    <label for="image-upload">Bild als Noise Filter hochladen:</label>
+                    <input type="file" id="image-upload" accept="image/*">
+                    <div class="image-preview-container">
+                        <img id="image-preview" src="#" alt="Image Preview" style="max-width: 100px; max-height: 100px; display: none;">
+                    </div>
+                    <label for="image-contrast">Kontrast-Anpassung:</label>
+                    <input type="range" id="image-contrast" value="0" min="-100" max="100" step="1">
+                    <span id="image-contrast-value">0%</span>
+                </div>
+
+                <div class="control-group">
+                    <label>Farbpalette & Häufigkeit</label>
+                    <div id="color-palette-container">
+                        <!-- Colors will be dynamically added here -->
+                    </div>
+                    <button id="add-color-btn" class="add-btn">+ Farbe hinzufügen</button>
+                </div>
+                
+                <div class="button-group">
+                    <button id="generate-btn">Neu Generieren</button>
+                    <button id="export-btn">Als PNG Exportieren</button>
+                </div>
+            </div>
+
+            <!-- ===== Column 2: Main Generator Preview and Options ===== -->
+            <div class="right-column">
+                <div class="preview-container">
+                    <h2>Vorschau</h2>
+                    <canvas id="tile-canvas" width="320" height="320"></canvas>
+                </div>
+
+                <div class="control-group">
+                    <h3>Tile-Grösse</h3>
+                    <div class="tile-size-inputs">
+                        <input type="number" id="tile-width" value="32" min="1" max="256">
+                        <span>x</span>
+                        <input type="number" id="tile-height" value="32" min="1" max="256">
+                        <span>Pixel</span>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label for="post-processing-toggle">
+                        <input type="checkbox" id="post-processing-toggle">
+                        Nachbearbeitung aktivieren
+                    </label>
+
+                    <div id="post-processing-options" hidden style="margin-top: 1rem; border-top: 1px solid var(--border-color); padding-top: 1rem;">
+                        <div class="control-group" style="margin:0; padding:0;">
+                            <label for="seamless-tiling-toggle">
+                                <input type="checkbox" id="seamless-tiling-toggle">
+                                Nahtloses Kacheln
+                            </label>
+                        </div>
+
+                        <div class="control-group" style="margin:0; padding:0; margin-top: 1rem;">
+                            <label for="transition-to-image-toggle">
+                                <input type="checkbox" id="transition-to-image-toggle">
+                                Übergang zu Bild
+                            </label>
+                            <div id="transition-image-controls" class="control-group" hidden>
+                                <label for="transition-image-upload">Bild für Übergang hochladen:</label>
+                                <input type="file" id="transition-image-upload" accept="image/*">
+                                <div class="image-preview-container">
+                                    <img id="transition-image-preview" src="#" alt="Transition Image Preview" style="max-width: 100px; max-height: 100px; display: none;">
+                                </div>
+                                <label for="transition-strength">Übergangsstärke:</label>
+                                <input type="range" id="transition-strength" value="50" min="0" max="100" step="1">
+                                <span id="transition-strength-value">50%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== Column 3: Blob Tile Generator ===== -->
+            <div class="blob-generator-container">
+                <h2>Blob Tile Generator</h2>
+                
+                <div class="control-group">
+                    <label for="blob-center-upload">Center Tile (Y)</label>
+                    <input type="file" id="blob-center-upload" accept="image/*">
+                </div>
+
+                <div class="control-group">
+                    <label for="blob-edge-upload">Edge Tile (X)</label>
+                    <input type="file" id="blob-edge-upload" accept="image/*">
+                </div>
+                
+                <div class="control-group">
+                    <label for="blob-transition-toggle">
+                        <input type="checkbox" id="blob-transition-toggle">
+                        Übergang aktivieren
+                    </label>
+                    <div id="blob-transition-controls" class="control-group" hidden>
+                        <label for="blob-transition-strength">Übergangsstärke:</label>
+                        <input type="range" id="blob-transition-strength" value="50" min="0" max="150" step="1">
+                        <span id="blob-transition-strength-value">50%</span>
+                    </div>
+                </div>
+                
+                <div class="preview-container">
+                    <h2>Blob Vorschau</h2>
+                    <canvas id="blob-canvas" width="320" height="320"></canvas>
+                </div>
+
+                <div class="button-group">
+                    <button id="blob-generate-btn">Generate Blob</button>
+                    <button id="blob-export-btn">Download Blob</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+    <script src="postprocessing.js"></script>
+    <script src="blob-generator.js"></script>
+</body>
+</html>
