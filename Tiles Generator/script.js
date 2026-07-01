@@ -95,6 +95,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const clusterOptionsGroup = document.getElementById('cluster-options-group');
     const clusterNoiseZoomInput = document.getElementById('cluster-noise-zoom');
     const clusterNoiseZoomValueSpan = document.getElementById('cluster-noise-zoom-value');
+    const waterOptionsGroup = document.getElementById('water-options-group');
+    const waterNoiseZoomInput = document.getElementById('water-noise-zoom');
+    const waterNoiseZoomValueSpan = document.getElementById('water-noise-zoom-value');
+    const waterWaveFrequencyInput = document.getElementById('water-wave-frequency');
+    const waterWaveFrequencyValueSpan = document.getElementById('water-wave-frequency-value');
+    const waterWaveAmplitudeInput = document.getElementById('water-wave-amplitude');
+    const waterWaveAmplitudeValueSpan = document.getElementById('water-wave-amplitude-value');
 
     let grid = [];
 
@@ -216,11 +223,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function generateWater(xEnd, yEnd, weightedColors) {
+    function generateWater(xEnd, yEnd, weightedColors, noiseZoom, waveFrequency, waveAmplitude) {
         noiseGenerator.seed(Math.random());
-        const noiseZoom = 5; // Adjust for different wave sizes
-        const waveFrequency = 0.5; // How many waves across the tile
-        const waveAmplitude = 0.5; // How much the wave distorts the noise
+        // ... rest of generateWater code using passed parameters ...
+
 
         // 1. Generate noise values for all pixels and store them.
         const noiseValues = [];
@@ -370,7 +376,10 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (algorithm === 'voronoi') {
             generateVoronoi(xEnd, yEnd, weightedColors);
         } else if (algorithm === 'water') {
-            generateWater(xEnd, yEnd, weightedColors);
+            const noiseZoom = parseInt(waterNoiseZoomInput.value, 10);
+            const waveFrequency = parseInt(waterWaveFrequencyInput.value, 10) / 100;
+            const waveAmplitude = parseInt(waterWaveAmplitudeInput.value, 10) / 100;
+            generateWater(xEnd, yEnd, weightedColors, noiseZoom, waveFrequency, waveAmplitude);
         } else { // Scatter algorithm
             for (let y = 0; y < yEnd; y++) {
                 for (let x = 0; x < xEnd; x++) {
@@ -457,16 +466,34 @@ document.addEventListener('DOMContentLoaded', () => {
         generateAndRender();
     });
 
+    waterNoiseZoomInput.addEventListener('input', () => {
+        waterNoiseZoomValueSpan.textContent = waterNoiseZoomInput.value;
+        generateAndRender();
+    });
+
+    waterWaveFrequencyInput.addEventListener('input', () => {
+        waterWaveFrequencyValueSpan.textContent = waterWaveFrequencyInput.value;
+        generateAndRender();
+    });
+
+    waterWaveAmplitudeInput.addEventListener('input', () => {
+        waterWaveAmplitudeValueSpan.textContent = waterWaveAmplitudeInput.value;
+        generateAndRender();
+    });
+
     algorithmSelect.addEventListener('change', () => {
         // Hide all algorithm-specific option groups
         voronoiOptionsGroup.hidden = true;
         clusterOptionsGroup.hidden = true;
+        waterOptionsGroup.hidden = true;
 
         // Show relevant option group based on selection
         if (algorithmSelect.value === 'voronoi') {
             voronoiOptionsGroup.hidden = false;
         } else if (algorithmSelect.value === 'cluster') {
             clusterOptionsGroup.hidden = false;
+        } else if (algorithmSelect.value === 'water') {
+            waterOptionsGroup.hidden = false;
         }
 
         generateAndRender(); // Re-generate to reflect changes
@@ -495,6 +522,8 @@ document.addEventListener('DOMContentLoaded', () => {
             voronoiOptionsGroup.hidden = false;
         } else if (algorithmSelect.value === 'cluster') {
             clusterOptionsGroup.hidden = false;
+        } else if (algorithmSelect.value === 'water') {
+            waterOptionsGroup.hidden = false;
         }
 
         generateAndRender(); // Generate initial tile
