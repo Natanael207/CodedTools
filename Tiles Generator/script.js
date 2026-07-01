@@ -110,7 +110,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const imageContrastValueSpan = document.getElementById('image-contrast-value');
     // Post-Processing DOM Elements
     const postProcessingToggle = document.getElementById('post-processing-toggle');
-    const postProcessingOptionsGroup = document.getElementById('post-processing-options-group');
+    const postProcessingOptions = document.getElementById('post-processing-options');
     const seamlessTilingToggle = document.getElementById('seamless-tiling-toggle');
     const transitionToImageToggle = document.getElementById('transition-to-image-toggle');
     const transitionImageControls = document.getElementById('transition-image-controls');
@@ -676,7 +676,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     postProcessingToggle.addEventListener('change', () => {
-        postProcessingOptionsGroup.hidden = !postProcessingToggle.checked;
+        postProcessingOptions.hidden = !postProcessingToggle.checked;
         generateAndRender();
     });
 

@@ -35,32 +35,26 @@ function blendHexColors(color1, color2, ratio) {
 
 // Function to make a tile seamless
 function applySeamlessTiling(grid, tileWidth, tileHeight) {
-    const newGrid = JSON.parse(JSON.stringify(grid)); // Deep copy to avoid modifying original
+    const newGrid = JSON.parse(JSON.stringify(grid)); // Deep copy to modify
 
-    // Apply horizontal seamlessness: Blend left and right edges
+    // Apply horizontal seamlessness: Blend left and right edges and apply to both
     if (tileWidth > 1) {
         for (let y = 0; y < tileHeight; y++) {
-            newGrid[y][0] = blendHexColors(grid[y][0], grid[y][tileWidth - 1], 0.5);
-            newGrid[y][tileWidth - 1] = blendHexColors(grid[y][tileWidth - 1], grid[y][0], 0.5);
+            const blendedColor = blendHexColors(newGrid[y][0], newGrid[y][tileWidth - 1], 0.5);
+            newGrid[y][0] = blendedColor;
+            newGrid[y][tileWidth - 1] = blendedColor;
         }
     }
 
-    // Apply vertical seamlessness: Blend top and bottom edges
+    // Apply vertical seamlessness on the already-modified grid
     if (tileHeight > 1) {
         for (let x = 0; x < tileWidth; x++) {
-            newGrid[0][x] = blendHexColors(grid[0][x], grid[tileHeight - 1][x], 0.5);
-            newGrid[tileHeight - 1][x] = blendHexColors(grid[tileHeight - 1][x], grid[0][x], 0.5);
+            const blendedColor = blendHexColors(newGrid[0][x], newGrid[tileHeight - 1][x], 0.5);
+            newGrid[0][x] = blendedColor;
+            newGrid[tileHeight - 1][x] = blendedColor;
         }
     }
     
-    // Corner cases (blend corners based on adjacent edges)
-    if (tileWidth > 1 && tileHeight > 1) {
-        newGrid[0][0] = blendHexColors(newGrid[0][0], newGrid[tileHeight - 1][tileWidth - 1], 0.5);
-        newGrid[0][tileWidth - 1] = blendHexColors(newGrid[0][tileWidth - 1], newGrid[tileHeight - 1][0], 0.5);
-        newGrid[tileHeight - 1][0] = blendHexColors(newGrid[tileHeight - 1][0], newGrid[0][tileWidth - 1], 0.5);
-        newGrid[tileHeight - 1][tileWidth - 1] = blendHexColors(newGrid[tileHeight - 1][tileWidth - 1], newGrid[0][0], 0.5);
-    }
-
     return newGrid;
 }
 

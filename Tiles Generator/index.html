@@ -113,31 +113,30 @@
                         <input type="checkbox" id="post-processing-toggle">
                         Nachbearbeitung aktivieren
                     </label>
-                </div>
 
-                <div id="post-processing-options-group" class="control-group" hidden>
-                    <h3>Nachbearbeitung Optionen</h3>
-                    <div class="control-group">
-                        <label for="seamless-tiling-toggle">
-                            <input type="checkbox" id="seamless-tiling-toggle">
-                            Nahtloses Kacheln
-                        </label>
-                    </div>
+                    <div id="post-processing-options" hidden style="margin-top: 1rem; border-top: 1px solid var(--border-color); padding-top: 1rem;">
+                        <div class="control-group" style="margin:0; padding:0;">
+                            <label for="seamless-tiling-toggle">
+                                <input type="checkbox" id="seamless-tiling-toggle">
+                                Nahtloses Kacheln
+                            </label>
+                        </div>
 
-                    <div class="control-group">
-                        <label for="transition-to-image-toggle">
-                            <input type="checkbox" id="transition-to-image-toggle">
-                            Übergang zu Bild
-                        </label>
-                        <div id="transition-image-controls" class="control-group" hidden>
-                            <label for="transition-image-upload">Bild für Übergang hochladen:</label>
-                            <input type="file" id="transition-image-upload" accept="image/*">
-                            <div class="image-preview-container">
-                                <img id="transition-image-preview" src="#" alt="Transition Image Preview" style="max-width: 100px; max-height: 100px; display: none;">
+                        <div class="control-group" style="margin:0; padding:0; margin-top: 1rem;">
+                            <label for="transition-to-image-toggle">
+                                <input type="checkbox" id="transition-to-image-toggle">
+                                Übergang zu Bild
+                            </label>
+                            <div id="transition-image-controls" class="control-group" hidden>
+                                <label for="transition-image-upload">Bild für Übergang hochladen:</label>
+                                <input type="file" id="transition-image-upload" accept="image/*">
+                                <div class="image-preview-container">
+                                    <img id="transition-image-preview" src="#" alt="Transition Image Preview" style="max-width: 100px; max-height: 100px; display: none;">
+                                </div>
+                                <label for="transition-strength">Übergangsstärke:</label>
+                                <input type="range" id="transition-strength" value="50" min="0" max="100" step="1">
+                                <span id="transition-strength-value">50%</span>
                             </div>
-                            <label for="transition-strength">Übergangsstärke:</label>
-                            <input type="range" id="transition-strength" value="50" min="0" max="100" step="1">
-                            <span id="transition-strength-value">50%</span>
                         </div>
                     </div>
                 </div>
