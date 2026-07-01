@@ -132,6 +132,119 @@ document.addEventListener('DOMContentLoaded', () => {
         return colors[colors.length - 1]?.color || '#000000';
     }
 
+    function generateVoronoi(xEnd, yEnd, weightedColors) {
+        const numSeedPoints = Math.max(1, weightedColors.length * 5); // Ensure at least 1 seed point
+        const seedPoints = [];
+
+        // Generate random seed points with colors from the palette
+        for (let i = 0; i < numSeedPoints; i++) {
+            seedPoints.push({
+                x: Math.random() * xEnd,
+                y: Math.random() * yEnd,
+                color: getWeightedRandomColor(weightedColors),
+                id: i // Unique ID for each seed point
+            });
+        }
+
+        // Create a temporary grid to store the ID of the closest seed point for each pixel
+        const closestSeedIdGrid = Array.from({ length: TILE_SIZE }, () => Array(TILE_SIZE).fill(null));
+
+        // Assign colors based on closest seed point
+        for (let y = 0; y < yEnd; y++) {
+            for (let x = 0; x < xEnd; x++) {
+                let minDistSq = Infinity;
+                let closestSeed = null;
+
+                for (const seed of seedPoints) {
+                    const distSq = (x - seed.x)**2 + (y - seed.y)**2;
+                    if (distSq < minDistSq) {
+                        minDistSq = distSq;
+                        closestSeed = seed;
+                    }
+                }
+                if (closestSeed) { // Ensure a closest seed was found
+                    grid[y][x] = closestSeed.color;
+                    closestSeedIdGrid[y][x] = closestSeed.id;
+                }
+            }
+        }
+
+        // Add borders (grout)
+        // Use a dark color from the palette for grout if available, otherwise a default gray
+        const defaultGroutColor = '#333333';
+        let groutColor = defaultGroutColor;
+        if (weightedColors.length > 0) {
+            // Find a dark color, or just pick the first one as a fallback
+            const darkColors = weightedColors.filter(c => {
+                // Simple luminance check: (R*299 + G*587 + B*114) / 1000
+                // Convert hex to RGB
+                const hex = c.color.substring(1);
+                const r = parseInt(hex.substring(0, 2), 16);
+                const g = parseInt(hex.substring(2, 4), 16);
+                const b = parseInt(hex.substring(4, 6), 16);
+                return (r * 0.299 + g * 0.587 + b * 0.114) / 255 < 0.3; // Check if luminance is low
+            });
+            if (darkColors.length > 0) {
+                groutColor = darkColors[0].color; // Use the darkest available color
+            } else {
+                groutColor = weightedColors[0].color; // Fallback to first color
+            }
+        }
+
+
+        for (let y = 0; y < yEnd; y++) {
+            for (let x = 0; x < xEnd; x++) {
+                const currentSeedId = closestSeedIdGrid[y][x];
+
+                // Check right neighbor
+                if (x + 1 < xEnd && closestSeedIdGrid[y][x + 1] !== currentSeedId) {
+                    grid[y][x] = groutColor;
+                }
+                // Check bottom neighbor
+                if (y + 1 < yEnd && closestSeedIdGrid[y + 1][x] !== currentSeedId) {
+                    grid[y][x] = groutColor;
+                }
+            }
+        }
+    }
+
+    function generateWater(xEnd, yEnd, weightedColors) {
+        noiseGenerator.seed(Math.random());
+        const noiseZoom = 5; // Adjust for different wave sizes
+        const waveFrequency = 0.5; // How many waves across the tile
+        const waveAmplitude = 0.5; // How much the wave distorts the noise
+
+        // Determine color thresholds based on weightedColors
+        const totalWeight = weightedColors.reduce((sum, c) => sum + c.weight, 0);
+        const thresholds = [];
+        let cumulativeWeight = 0;
+        for (const c of weightedColors) {
+            cumulativeWeight += c.weight;
+            thresholds.push({ threshold: cumulativeWeight / totalWeight, color: c.color });
+        }
+
+        for (let y = 0; y < yEnd; y++) {
+            for (let x = 0; x < xEnd; x++) {
+                // Apply a sine wave distortion to the y-coordinate for wave effect
+                const yDistorted = y + Math.sin(x * waveFrequency) * waveAmplitude;
+                
+                // Get Perlin noise value with distortion
+                const rawNoiseValue = noiseGenerator.perlinNoise(x / noiseZoom, yDistorted / noiseZoom);
+                const noiseValue = (rawNoiseValue + 1) / 2; // Normalize to 0-1
+
+                // Assign color based on noise value and thresholds
+                let chosenColor = weightedColors[weightedColors.length - 1]?.color || '#000000';
+                for (const t of thresholds) {
+                    if (noiseValue < t.threshold) {
+                        chosenColor = t.color;
+                        break;
+                    }
+                }
+                grid[y][x] = chosenColor;
+            }
+        }
+    }
+
     function generateAndRender() {
         grid = Array.from({ length: TILE_SIZE }, () => Array(TILE_SIZE).fill(null));
 
@@ -203,6 +316,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             }
+        } else if (algorithm === 'voronoi') {
+            generateVoronoi(xEnd, yEnd, weightedColors);
+        } else if (algorithm === 'water') {
+            generateWater(xEnd, yEnd, weightedColors);
         } else { // Scatter algorithm
             for (let y = 0; y < yEnd; y++) {
                 for (let x = 0; x < xEnd; x++) {
