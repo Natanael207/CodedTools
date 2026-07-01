@@ -202,3 +202,24 @@ button {
     width: 320px;
     height: 320px;
 }
+
+/* New styles for Image Noise Filter */
+.image-preview-container {
+    margin-top: 1rem;
+    border: 1px dashed var(--border-color);
+    padding: 0.5rem;
+    border-radius: 4px;
+    min-height: 50px; /* To show border even if no image */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#image-preview {
+    max-width: 100%;
+    max-height: 100px;
+    display: block; /* Ensure it respects max-width/height */
+    object-fit: contain;
+    border-radius: 2px;
+}
+

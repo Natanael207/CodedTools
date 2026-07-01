@@ -102,8 +102,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const waterWaveFrequencyValueSpan = document.getElementById('water-wave-frequency-value');
     const waterWaveAmplitudeInput = document.getElementById('water-wave-amplitude');
     const waterWaveAmplitudeValueSpan = document.getElementById('water-wave-amplitude-value');
+    // New Image Noise Filter DOM Elements
+    const imageOptionsGroup = document.getElementById('image-options-group');
+    const imageUploadInput = document.getElementById('image-upload');
+    const imagePreview = document.getElementById('image-preview');
 
     let grid = [];
+    let imageNoiseData = null; // To store processed image pixel data
 
     // --- Color Management ---
 
@@ -143,6 +148,117 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         return colors[colors.length - 1]?.color || '#000000';
+    }
+
+    // --- Image Noise Filter Logic ---
+    function loadImageAsNoiseData(file) {
+        if (!file) {
+            imageNoiseData = null;
+            imagePreview.src = '#';
+            imagePreview.style.display = 'none';
+            generateAndRender();
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                const tileWidth = parseInt(tileWidthInput.value, 10);
+                const tileHeight = parseInt(tileHeightInput.value, 10);
+
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = tileWidth;
+                tempCanvas.height = tileHeight;
+                const tempCtx = tempCanvas.getContext('2d');
+
+                // Draw image scaled to tile dimensions
+                tempCtx.drawImage(img, 0, 0, tileWidth, tileHeight);
+
+                const imageData = tempCtx.getImageData(0, 0, tileWidth, tileHeight).data;
+                const newImageNoiseData = [];
+
+                for (let i = 0; i < imageData.length; i += 4) {
+                    const r = imageData[i];
+                    const g = imageData[i + 1];
+                    const b = imageData[i + 2];
+                    // Calculate luminance (0-1 range)
+                    const luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+                    newImageNoiseData.push(luminance);
+                }
+                imageNoiseData = newImageNoiseData;
+                imagePreview.src = e.target.result;
+                imagePreview.style.display = 'block';
+                generateAndRender();
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function generateImageNoise(xEnd, yEnd, weightedColors) {
+        if (!imageNoiseData) {
+            // Fallback to scatter if no image data is loaded
+            for (let y = 0; y < yEnd; y++) {
+                for (let x = 0; x < xEnd; x++) {
+                    grid[y][x] = getWeightedRandomColor(weightedColors);
+                }
+            }
+            return;
+        }
+
+        const totalPixels = xEnd * yEnd;
+        if (imageNoiseData.length !== totalPixels) {
+            console.error("Image noise data size does not match tile dimensions.");
+            // Fallback to scatter
+            for (let y = 0; y < yEnd; y++) {
+                for (let x = 0; x < xEnd; x++) {
+                    grid[y][x] = getWeightedRandomColor(weightedColors);
+                }
+            }
+            return;
+        }
+        
+        // Sort colors by their perceived brightness for better mapping
+        const sortedWeightedColors = [...weightedColors].sort((a, b) => {
+            const getLuminance = (hex) => {
+                const r = parseInt(hex.substring(1, 3), 16);
+                const g = parseInt(hex.substring(3, 5), 16);
+                const b = parseInt(hex.substring(5, 7), 16);
+                return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+            };
+            return getLuminance(a.color) - getLuminance(b.color);
+        });
+
+        // Map luminance values to colors
+        let pixelIndex = 0;
+        for (let y = 0; y < yEnd; y++) {
+            for (let x = 0; x < xEnd; x++) {
+                const luminance = imageNoiseData[pixelIndex]; // luminance is 0-1
+                // Find the appropriate color based on luminance
+                // Divide the 0-1 luminance range into segments proportional to color weights
+                const totalWeight = sortedWeightedColors.reduce((sum, c) => sum + c.weight, 0);
+                if (totalWeight === 0) {
+                    grid[y][x] = '#000000'; // Default to black if no weights
+                    pixelIndex++;
+                    continue;
+                }
+
+                let cumulativeWeight = 0;
+                let assignedColor = '#000000';
+                const targetWeightValue = luminance * totalWeight;
+
+                for (const colorEntry of sortedWeightedColors) {
+                    cumulativeWeight += colorEntry.weight;
+                    if (targetWeightValue <= cumulativeWeight) {
+                        assignedColor = colorEntry.color;
+                        break;
+                    }
+                }
+                grid[y][x] = assignedColor;
+                pixelIndex++;
+            }
+        }
     }
 
     function generateVoronoi(xEnd, yEnd, weightedColors) {
@@ -380,6 +496,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const waveFrequency = parseInt(waterWaveFrequencyInput.value, 10) / 100;
             const waveAmplitude = parseInt(waterWaveAmplitudeInput.value, 10) / 100;
             generateWater(xEnd, yEnd, weightedColors, noiseZoom, waveFrequency, waveAmplitude);
+        } else if (algorithm === 'image') {
+            generateImageNoise(xEnd, yEnd, weightedColors);
         } else { // Scatter algorithm
             for (let y = 0; y < yEnd; y++) {
                 for (let x = 0; x < xEnd; x++) {
@@ -481,11 +599,16 @@ document.addEventListener('DOMContentLoaded', () => {
         generateAndRender();
     });
 
+    imageUploadInput.addEventListener('change', (e) => {
+        loadImageAsNoiseData(e.target.files[0]);
+    });
+
     algorithmSelect.addEventListener('change', () => {
         // Hide all algorithm-specific option groups
         voronoiOptionsGroup.hidden = true;
         clusterOptionsGroup.hidden = true;
         waterOptionsGroup.hidden = true;
+        imageOptionsGroup.hidden = true;
 
         // Show relevant option group based on selection
         if (algorithmSelect.value === 'voronoi') {
@@ -494,6 +617,8 @@ document.addEventListener('DOMContentLoaded', () => {
             clusterOptionsGroup.hidden = false;
         } else if (algorithmSelect.value === 'water') {
             waterOptionsGroup.hidden = false;
+        } else if (algorithmSelect.value === 'image') {
+            imageOptionsGroup.hidden = false;
         }
 
         generateAndRender(); // Re-generate to reflect changes

@@ -32,6 +32,7 @@
                         <option value="cluster">Cluster (Perlin Noise)</option>
                         <option value="voronoi">Pflasterstein (Voronoi)</option>
                         <option value="water">Wasser (Wellen)</option>
+                        <option value="image">Bild (Noise Filter)</option>
                     </select>
                 </div>
 
@@ -64,6 +65,14 @@
                     <label for="water-wave-amplitude">Wellen-Amplitude:</label>
                     <input type="range" id="water-wave-amplitude" value="50" min="0" max="100" step="1">
                     <span id="water-wave-amplitude-value">0.50</span>
+                </div>
+                
+                <div id="image-options-group" class="control-group" hidden>
+                    <label for="image-upload">Bild als Noise Filter hochladen:</label>
+                    <input type="file" id="image-upload" accept="image/*">
+                    <div class="image-preview-container">
+                        <img id="image-preview" src="#" alt="Image Preview" style="max-width: 100px; max-height: 100px; display: none;">
+                    </div>
                 </div>
 
                 <div class="control-group">
