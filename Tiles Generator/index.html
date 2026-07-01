@@ -40,6 +40,16 @@
                         <input type="checkbox" id="voronoi-borders-toggle">
                         Voronoi-Ränder anzeigen
                     </label>
+                    <div class="voronoi-cell-count-control">
+                        <label for="voronoi-cell-count">Anzahl Voronoi-Zellen:</label>
+                        <input type="number" id="voronoi-cell-count" value="30" min="1" max="256">
+                    </div>
+                </div>
+
+                <div id="cluster-options-group" class="control-group" hidden>
+                    <label for="cluster-noise-zoom">Rausch-Skala (Zoom):</label>
+                    <input type="range" id="cluster-noise-zoom" value="10" min="1" max="50" step="1">
+                    <span id="cluster-noise-zoom-value">10</span>
                 </div>
 
                 <div class="control-group">

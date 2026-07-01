@@ -91,6 +91,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const tileHeightInput = document.getElementById('tile-height');
     const voronoiBordersToggle = document.getElementById('voronoi-borders-toggle');
     const voronoiOptionsGroup = document.getElementById('voronoi-options-group');
+    const voronoiCellCountInput = document.getElementById('voronoi-cell-count');
+    const clusterOptionsGroup = document.getElementById('cluster-options-group');
+    const clusterNoiseZoomInput = document.getElementById('cluster-noise-zoom');
+    const clusterNoiseZoomValueSpan = document.getElementById('cluster-noise-zoom-value');
 
     let grid = [];
 
@@ -135,12 +139,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function generateVoronoi(xEnd, yEnd, weightedColors) {
-        // Define a base density for seed points relative to a 32x32 tile
-        const defaultTileSize = 32;
-        const defaultSeedPoints = 30; // As per user's example
-        const seedPointDensity = defaultSeedPoints / (defaultTileSize * defaultTileSize);
-
-        const numSeedPoints = Math.max(1, Math.round(seedPointDensity * xEnd * yEnd));
+        const numSeedPoints = parseInt(voronoiCellCountInput.value, 10);
         const seedPoints = [];
 
         // Generate random seed points with colors from the palette
@@ -281,6 +280,63 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function generateCluster(xEnd, yEnd, weightedColors, noiseZoom) {
+        noiseGenerator.seed(Math.random());
+
+        // 1. Generate noise values for all pixels and store them.
+        const noiseValues = [];
+        for (let y = 0; y < yEnd; y++) {
+            for (let x = 0; x < xEnd; x++) {
+                const noiseValue = noiseGenerator.perlinNoise(x / noiseZoom, y / noiseZoom);
+                noiseValues.push({ x, y, noise: noiseValue });
+            }
+        }
+
+        // 2. Sort pixels by noise value.
+        noiseValues.sort((a, b) => a.noise - b.noise);
+
+        // 3. Calculate pixel counts for each color based on weight.
+        const totalPixels = xEnd * yEnd;
+        const totalWeight = weightedColors.reduce((sum, c) => sum + c.weight, 0);
+        
+        if (totalWeight > 0) {
+            const colorPixelCounts = weightedColors.map(c => ({
+                color: c.color,
+                count: Math.round((c.weight / totalWeight) * totalPixels)
+            }));
+            
+            // Adjust counts to ensure total is exactly totalPixels
+            let currentTotal = colorPixelCounts.reduce((sum, c) => sum + c.count, 0);
+            let diff = totalPixels - currentTotal;
+            if (diff !== 0 && colorPixelCounts.length > 0) {
+                // Distribute difference among colors
+                let i = 0;
+                while(diff !== 0) {
+                    const index = i % colorPixelCounts.length;
+                    const adjustment = Math.sign(diff);
+                    if (colorPixelCounts[index].count + adjustment >= 0) {
+                       colorPixelCounts[index].count += adjustment;
+                       diff -= adjustment;
+                    }
+                    i++;
+                    if (i > totalPixels * 2) break; // Safety break
+                }
+            }
+
+            // 4. Assign colors to the grid based on sorted noise.
+            let pixelIndex = 0;
+            for (const colorCount of colorPixelCounts) {
+                for (let i = 0; i < colorCount.count; i++) {
+                    if (pixelIndex < noiseValues.length) {
+                        const pixel = noiseValues[pixelIndex];
+                        grid[pixel.y][pixel.x] = colorCount.color;
+                        pixelIndex++;
+                    }
+                }
+            }
+        }
+    }
+
     function generateAndRender() {
         const tileWidth = parseInt(tileWidthInput.value, 10);
         const tileHeight = parseInt(tileHeightInput.value, 10);
@@ -309,61 +365,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const yEnd = (symmetry === 'horizontal' || symmetry === 'quadrant') ? Math.ceil(tileHeight / 2) : tileHeight;
 
         if (algorithm === 'cluster') {
-            noiseGenerator.seed(Math.random());
-            const noiseZoom = 10; // How "zoomed in" the noise is.
-
-            // 1. Generate noise values for all pixels and store them.
-            const noiseValues = [];
-            for (let y = 0; y < yEnd; y++) {
-                for (let x = 0; x < xEnd; x++) {
-                    const noiseValue = noiseGenerator.perlinNoise(x / noiseZoom, y / noiseZoom);
-                    noiseValues.push({ x, y, noise: noiseValue });
-                }
-            }
-
-            // 2. Sort pixels by noise value.
-            noiseValues.sort((a, b) => a.noise - b.noise);
-
-            // 3. Calculate pixel counts for each color based on weight.
-            const totalPixels = xEnd * yEnd;
-            const totalWeight = weightedColors.reduce((sum, c) => sum + c.weight, 0);
-            
-            if (totalWeight > 0) {
-                const colorPixelCounts = weightedColors.map(c => ({
-                    color: c.color,
-                    count: Math.round((c.weight / totalWeight) * totalPixels)
-                }));
-                
-                // Adjust counts to ensure total is exactly totalPixels
-                let currentTotal = colorPixelCounts.reduce((sum, c) => sum + c.count, 0);
-                let diff = totalPixels - currentTotal;
-                if (diff !== 0 && colorPixelCounts.length > 0) {
-                    // Distribute difference among colors
-                    let i = 0;
-                    while(diff !== 0) {
-                        const index = i % colorPixelCounts.length;
-                        const adjustment = Math.sign(diff);
-                        if (colorPixelCounts[index].count + adjustment >= 0) {
-                           colorPixelCounts[index].count += adjustment;
-                           diff -= adjustment;
-                        }
-                        i++;
-                        if (i > totalPixels * 2) break; // Safety break
-                    }
-                }
-
-                // 4. Assign colors to the grid based on sorted noise.
-                let pixelIndex = 0;
-                for (const colorCount of colorPixelCounts) {
-                    for (let i = 0; i < colorCount.count; i++) {
-                        if (pixelIndex < noiseValues.length) {
-                            const pixel = noiseValues[pixelIndex];
-                            grid[pixel.y][pixel.x] = colorCount.color;
-                            pixelIndex++;
-                        }
-                    }
-                }
-            }
+            const noiseZoom = parseInt(clusterNoiseZoomInput.value, 10);
+            generateCluster(xEnd, yEnd, weightedColors, noiseZoom);
         } else if (algorithm === 'voronoi') {
             generateVoronoi(xEnd, yEnd, weightedColors);
         } else if (algorithm === 'water') {
@@ -449,12 +452,23 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    clusterNoiseZoomInput.addEventListener('input', () => {
+        clusterNoiseZoomValueSpan.textContent = clusterNoiseZoomInput.value;
+        generateAndRender();
+    });
+
     algorithmSelect.addEventListener('change', () => {
+        // Hide all algorithm-specific option groups
+        voronoiOptionsGroup.hidden = true;
+        clusterOptionsGroup.hidden = true;
+
+        // Show relevant option group based on selection
         if (algorithmSelect.value === 'voronoi') {
             voronoiOptionsGroup.hidden = false;
-        } else {
-            voronoiOptionsGroup.hidden = true;
+        } else if (algorithmSelect.value === 'cluster') {
+            clusterOptionsGroup.hidden = false;
         }
+
         generateAndRender(); // Re-generate to reflect changes
     });
 
@@ -471,11 +485,16 @@ document.addEventListener('DOMContentLoaded', () => {
              paletteContainer.appendChild(newEntry);
         });
         
-        // Explicitly set initial visibility for voronoi options based on default selected algorithm
+        // Set initial visibility for algorithm-specific options
+        // Hide all first
+        voronoiOptionsGroup.hidden = true;
+        clusterOptionsGroup.hidden = true;
+
+        // Then show the one corresponding to the initially selected algorithm
         if (algorithmSelect.value === 'voronoi') {
             voronoiOptionsGroup.hidden = false;
-        } else {
-            voronoiOptionsGroup.hidden = true;
+        } else if (algorithmSelect.value === 'cluster') {
+            clusterOptionsGroup.hidden = false;
         }
 
         generateAndRender(); // Generate initial tile
