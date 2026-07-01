@@ -21,7 +21,7 @@ body {
 
 .container {
     width: 100%;
-    max-width: 900px;
+    max-width: 1300px;
 }
 
 h1, h2 {
@@ -41,7 +41,7 @@ h1 {
     align-items: flex-start;
 }
 
-.controls {
+.controls, .blob-generator-container {
     background-color: var(--control-bg);
     padding: 1.5rem;
     border-radius: 8px;
@@ -85,7 +85,7 @@ h1 {
     font-weight: 500;
 }
 
-select, input[type="range"] {
+select, input[type="range"], input[type="file"] {
     width: 100%;
     padding: 0.5rem;
     background-color: var(--bg-color);
@@ -93,6 +93,10 @@ select, input[type="range"] {
     border: 1px solid var(--border-color);
     border-radius: 4px;
     font-size: 1rem;
+}
+
+input[type="file"] {
+    cursor: pointer;
 }
 
 select {
@@ -220,21 +224,21 @@ button {
     transition: background-color 0.2s ease;
 }
 
-#generate-btn {
+#generate-btn, #blob-generate-btn {
     background-color: var(--accent-color);
     color: var(--bg-color);
 }
 
-#generate-btn:hover {
+#generate-btn:hover, #blob-generate-btn:hover {
     opacity: 0.9;
 }
 
-#export-btn {
+#export-btn, #blob-export-btn {
     background-color: var(--button-hover-bg);
     color: var(--primary-color);
 }
 
-#export-btn:hover {
+#export-btn:hover, #blob-export-btn:hover {
     background-color: var(--border-color);
 }
 
@@ -248,7 +252,14 @@ button {
     border: 1px solid var(--border-color);
 }
 
-#tile-canvas {
+.blob-generator-container .preview-container {
+    background-color: transparent;
+    border: none;
+    padding: 0;
+    margin-top: 1.5rem;
+}
+
+#tile-canvas, #blob-canvas {
     border: 2px solid var(--border-color);
     border-radius: 4px;
     background-color: var(--bg-color);
@@ -263,14 +274,14 @@ button {
     border: 1px dashed var(--border-color);
     padding: 0.5rem;
     border-radius: 4px;
-    min-height: 50px; /* To show border even if no image */
+    min-height: 100px;
     display: flex;
     justify-content: center;
     align-items: center;
 }
 
 
-#image-preview {
+#image-preview, #blob-center-preview, #blob-edge-preview {
     max-width: 100%;
     max-height: 100px;
     display: block; /* Ensure it respects max-width/height */
@@ -291,4 +302,3 @@ button {
     object-fit: contain;
     border-radius: 2px;
 }
-
