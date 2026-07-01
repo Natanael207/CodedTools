@@ -89,6 +89,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const exportBtn = document.getElementById('export-btn');
     const tileWidthInput = document.getElementById('tile-width');
     const tileHeightInput = document.getElementById('tile-height');
+    const voronoiBordersToggle = document.getElementById('voronoi-borders-toggle');
+    const voronoiOptionsGroup = document.getElementById('voronoi-options-group');
 
     let grid = [];
 
@@ -133,7 +135,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function generateVoronoi(xEnd, yEnd, weightedColors) {
-        const numSeedPoints = Math.max(1, weightedColors.length * 5); // Ensure at least 1 seed point
+        // Define a base density for seed points relative to a 32x32 tile
+        const defaultTileSize = 32;
+        const defaultSeedPoints = 30; // As per user's example
+        const seedPointDensity = defaultSeedPoints / (defaultTileSize * defaultTileSize);
+
+        const numSeedPoints = Math.max(1, Math.round(seedPointDensity * xEnd * yEnd));
         const seedPoints = [];
 
         // Generate random seed points with colors from the palette
@@ -170,39 +177,41 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Add borders (grout)
-        // Use a dark color from the palette for grout if available, otherwise a default gray
-        const defaultGroutColor = '#333333';
-        let groutColor = defaultGroutColor;
-        if (weightedColors.length > 0) {
-            // Find a dark color, or just pick the first one as a fallback
-            const darkColors = weightedColors.filter(c => {
-                // Simple luminance check: (R*299 + G*587 + B*114) / 1000
-                // Convert hex to RGB
-                const hex = c.color.substring(1);
-                const r = parseInt(hex.substring(0, 2), 16);
-                const g = parseInt(hex.substring(2, 4), 16);
-                const b = parseInt(hex.substring(4, 6), 16);
-                return (r * 0.299 + g * 0.587 + b * 0.114) / 255 < 0.3; // Check if luminance is low
-            });
-            if (darkColors.length > 0) {
-                groutColor = darkColors[0].color; // Use the darkest available color
-            } else {
-                groutColor = weightedColors[0].color; // Fallback to first color
-            }
-        }
-
-
-        for (let y = 0; y < yEnd; y++) {
-            for (let x = 0; x < xEnd; x++) {
-                const currentSeedId = closestSeedIdGrid[y][x];
-
-                // Check right neighbor
-                if (x + 1 < xEnd && closestSeedIdGrid[y][x + 1] !== currentSeedId) {
-                    grid[y][x] = groutColor;
+        if (voronoiBordersToggle.checked) {
+            // Use a dark color from the palette for grout if available, otherwise a default gray
+            const defaultGroutColor = '#333333';
+            let groutColor = defaultGroutColor;
+            if (weightedColors.length > 0) {
+                // Find a dark color, or just pick the first one as a fallback
+                const darkColors = weightedColors.filter(c => {
+                    // Simple luminance check: (R*299 + G*587 + B*114) / 1000
+                    // Convert hex to RGB
+                    const hex = c.color.substring(1);
+                    const r = parseInt(hex.substring(0, 2), 16);
+                    const g = parseInt(hex.substring(2, 4), 16);
+                    const b = parseInt(hex.substring(4, 6), 16);
+                    return (r * 0.299 + g * 0.587 + b * 0.114) / 255 < 0.3; // Check if luminance is low
+                });
+                if (darkColors.length > 0) {
+                    groutColor = darkColors[0].color; // Use the darkest available color
+                } else {
+                    groutColor = weightedColors[0].color; // Fallback to first color
                 }
-                // Check bottom neighbor
-                if (y + 1 < yEnd && closestSeedIdGrid[y + 1][x] !== currentSeedId) {
-                    grid[y][x] = groutColor;
+            }
+
+
+            for (let y = 0; y < yEnd; y++) {
+                for (let x = 0; x < xEnd; x++) {
+                    const currentSeedId = closestSeedIdGrid[y][x];
+
+                    // Check right neighbor
+                    if (x + 1 < xEnd && closestSeedIdGrid[y][x + 1] !== currentSeedId) {
+                        grid[y][x] = groutColor;
+                    }
+                    // Check bottom neighbor
+                    if (y + 1 < yEnd && closestSeedIdGrid[y + 1][x] !== currentSeedId) {
+                        grid[y][x] = groutColor;
+                    }
                 }
             }
         }
@@ -440,6 +449,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    algorithmSelect.addEventListener('change', () => {
+        if (algorithmSelect.value === 'voronoi') {
+            voronoiOptionsGroup.hidden = false;
+        } else {
+            voronoiOptionsGroup.hidden = true;
+        }
+        generateAndRender(); // Re-generate to reflect changes
+    });
+
     // --- Initial Setup ---
     function initialize() {
         const initialColors = [
@@ -452,7 +470,15 @@ document.addEventListener('DOMContentLoaded', () => {
              const newEntry = createColorEntry(color, weight);
              paletteContainer.appendChild(newEntry);
         });
-        generateAndRender();
+        
+        // Explicitly set initial visibility for voronoi options based on default selected algorithm
+        if (algorithmSelect.value === 'voronoi') {
+            voronoiOptionsGroup.hidden = false;
+        } else {
+            voronoiOptionsGroup.hidden = true;
+        }
+
+        generateAndRender(); // Generate initial tile
     }
 
     initialize();
