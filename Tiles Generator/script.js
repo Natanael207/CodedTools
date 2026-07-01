@@ -106,6 +106,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const imageOptionsGroup = document.getElementById('image-options-group');
     const imageUploadInput = document.getElementById('image-upload');
     const imagePreview = document.getElementById('image-preview');
+    const imageContrastInput = document.getElementById('image-contrast');
+    const imageContrastValueSpan = document.getElementById('image-contrast-value');
 
     let grid = [];
     let imageNoiseData = null; // To store processed image pixel data
@@ -196,7 +198,7 @@ document.addEventListener('DOMContentLoaded', () => {
         reader.readAsDataURL(file);
     }
 
-    function generateImageNoise(xEnd, yEnd, weightedColors) {
+    function generateImageNoise(xEnd, yEnd, weightedColors, imageContrast) {
         if (!imageNoiseData) {
             // Fallback to scatter if no image data is loaded
             for (let y = 0; y < yEnd; y++) {
@@ -234,26 +236,23 @@ document.addEventListener('DOMContentLoaded', () => {
         let pixelIndex = 0;
         for (let y = 0; y < yEnd; y++) {
             for (let x = 0; x < xEnd; x++) {
-                const luminance = imageNoiseData[pixelIndex]; // luminance is 0-1
-                // Find the appropriate color based on luminance
-                // Divide the 0-1 luminance range into segments proportional to color weights
-                const totalWeight = sortedWeightedColors.reduce((sum, c) => sum + c.weight, 0);
-                if (totalWeight === 0) {
-                    grid[y][x] = '#000000'; // Default to black if no weights
-                    pixelIndex++;
-                    continue;
+                let luminance = imageNoiseData[pixelIndex]; // luminance is 0-1
+
+                // Apply contrast adjustment
+                if (imageContrast !== 0) {
+                    const contrastFactor = imageContrast / 100; // Convert -100 to 100 range to -1 to 1
+                    luminance = 0.5 + (luminance - 0.5) * (1 + contrastFactor);
+                    luminance = Math.max(0, Math.min(1, luminance)); // Clamp luminance to [0, 1]
                 }
 
-                let cumulativeWeight = 0;
+                // Find the appropriate color based on luminance
+                // Divide the 0-1 luminance range into equal segments for each color.
+                // This ensures all colors are used and ignores their original weights.
                 let assignedColor = '#000000';
-                const targetWeightValue = luminance * totalWeight;
-
-                for (const colorEntry of sortedWeightedColors) {
-                    cumulativeWeight += colorEntry.weight;
-                    if (targetWeightValue <= cumulativeWeight) {
-                        assignedColor = colorEntry.color;
-                        break;
-                    }
+                if (sortedWeightedColors.length > 0) {
+                    const segmentSize = 1 / sortedWeightedColors.length;
+                    const colorIndex = Math.min(Math.floor(luminance / segmentSize), sortedWeightedColors.length - 1);
+                    assignedColor = sortedWeightedColors[colorIndex].color;
                 }
                 grid[y][x] = assignedColor;
                 pixelIndex++;
@@ -497,7 +496,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const waveAmplitude = parseInt(waterWaveAmplitudeInput.value, 10) / 100;
             generateWater(xEnd, yEnd, weightedColors, noiseZoom, waveFrequency, waveAmplitude);
         } else if (algorithm === 'image') {
-            generateImageNoise(xEnd, yEnd, weightedColors);
+            const imageContrast = parseInt(imageContrastInput.value, 10);
+            generateImageNoise(xEnd, yEnd, weightedColors, imageContrast);
         } else { // Scatter algorithm
             for (let y = 0; y < yEnd; y++) {
                 for (let x = 0; x < xEnd; x++) {
@@ -601,6 +601,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     imageUploadInput.addEventListener('change', (e) => {
         loadImageAsNoiseData(e.target.files[0]);
+    });
+
+    imageContrastInput.addEventListener('input', () => {
+        imageContrastValueSpan.textContent = imageContrastInput.value + '%';
+        generateAndRender();
     });
 
     algorithmSelect.addEventListener('change', () => {
