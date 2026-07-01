@@ -214,33 +214,60 @@ document.addEventListener('DOMContentLoaded', () => {
         const waveFrequency = 0.5; // How many waves across the tile
         const waveAmplitude = 0.5; // How much the wave distorts the noise
 
-        // Determine color thresholds based on weightedColors
-        const totalWeight = weightedColors.reduce((sum, c) => sum + c.weight, 0);
-        const thresholds = [];
-        let cumulativeWeight = 0;
-        for (const c of weightedColors) {
-            cumulativeWeight += c.weight;
-            thresholds.push({ threshold: cumulativeWeight / totalWeight, color: c.color });
-        }
-
+        // 1. Generate noise values for all pixels and store them.
+        const noiseValues = [];
         for (let y = 0; y < yEnd; y++) {
             for (let x = 0; x < xEnd; x++) {
                 // Apply a sine wave distortion to the y-coordinate for wave effect
                 const yDistorted = y + Math.sin(x * waveFrequency) * waveAmplitude;
                 
                 // Get Perlin noise value with distortion
-                const rawNoiseValue = noiseGenerator.perlinNoise(x / noiseZoom, yDistorted / noiseZoom);
-                const noiseValue = (rawNoiseValue + 1) / 2; // Normalize to 0-1
+                const noiseValue = noiseGenerator.perlinNoise(x / noiseZoom, yDistorted / noiseZoom);
+                noiseValues.push({ x, y, noise: noiseValue });
+            }
+        }
 
-                // Assign color based on noise value and thresholds
-                let chosenColor = weightedColors[weightedColors.length - 1]?.color || '#000000';
-                for (const t of thresholds) {
-                    if (noiseValue < t.threshold) {
-                        chosenColor = t.color;
-                        break;
+        // 2. Sort pixels by noise value.
+        noiseValues.sort((a, b) => a.noise - b.noise);
+
+        // 3. Calculate pixel counts for each color based on weight.
+        const totalPixels = xEnd * yEnd;
+        const totalWeight = weightedColors.reduce((sum, c) => sum + c.weight, 0);
+        
+        if (totalWeight > 0) {
+            const colorPixelCounts = weightedColors.map(c => ({
+                color: c.color,
+                count: Math.round((c.weight / totalWeight) * totalPixels)
+            }));
+            
+            // Adjust counts to ensure total is exactly totalPixels
+            let currentTotal = colorPixelCounts.reduce((sum, c) => sum + c.count, 0);
+            let diff = totalPixels - currentTotal;
+            if (diff !== 0 && colorPixelCounts.length > 0) {
+                // Distribute difference among colors
+                let i = 0;
+                while(diff !== 0) {
+                    const index = i % colorPixelCounts.length;
+                    const adjustment = Math.sign(diff);
+                    if (colorPixelCounts[index].count + adjustment >= 0) {
+                       colorPixelCounts[index].count += adjustment;
+                       diff -= adjustment;
+                    }
+                    i++;
+                    if (i > totalPixels * 2) break; // Safety break
+                }
+            }
+
+            // 4. Assign colors to the grid based on sorted noise.
+            let pixelIndex = 0;
+            for (const colorCount of colorPixelCounts) {
+                for (let i = 0; i < colorCount.count; i++) {
+                    if (pixelIndex < noiseValues.length) {
+                        const pixel = noiseValues[pixelIndex];
+                        grid[pixel.y][pixel.x] = colorCount.color;
+                        pixelIndex++;
                     }
                 }
-                grid[y][x] = chosenColor;
             }
         }
     }
