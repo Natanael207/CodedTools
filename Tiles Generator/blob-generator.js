@@ -12,6 +12,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const generateBtn = document.getElementById('blob-generate-btn');
     const exportBtn = document.getElementById('blob-export-btn');
 
+    const blobTransitionToggle = document.getElementById('blob-transition-toggle');
+    const blobTransitionControls = document.getElementById('blob-transition-controls');
+    const blobTransitionStrengthInput = document.getElementById('blob-transition-strength');
+    const blobTransitionStrengthValueSpan = document.getElementById('blob-transition-strength-value');
+
+    const noiseGenerator = createPerlinNoiseGenerator();
+
     // -----------------------------------------------------------------------------
     // SECTION: State Variables
     // -----------------------------------------------------------------------------
@@ -20,6 +27,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let centerImageLoaded = false;
     let edgeImageLoaded = false;
     let generatedBlobCanvas = null; // In-memory canvas for the full-res blob
+
+    let centerImagePixelData = null; // Stores pixel data as hex colors
+    let edgeImagePixelData = null;   // Stores pixel data as hex colors
+    let blobTileSize = 0; // Stores the size of the source tiles
 
     // -----------------------------------------------------------------------------
     // SECTION: Image Loading and Handling
@@ -40,9 +51,34 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         
         targetImage.onload = () => {
-             if (targetImage === centerImage) centerImageLoaded = true;
-             if (targetImage === edgeImage) edgeImageLoaded = true;
-             console.log(`${targetImage === centerImage ? 'Center' : 'Edge'} image loaded.`);
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            
+            // Assuming square tiles and matching sizes for center and edge
+            const size = targetImage.width; 
+            tempCanvas.width = size;
+            tempCanvas.height = size;
+            tempCtx.drawImage(targetImage, 0, 0, size, size);
+            
+            const imageData = tempCtx.getImageData(0, 0, size, size).data;
+            const pixelData = [];
+            for (let i = 0; i < imageData.length; i += 4) {
+                const r = imageData[i].toString(16).padStart(2, '0');
+                const g = imageData[i+1].toString(16).padStart(2, '0');
+                const b = imageData[i+2].toString(16).padStart(2, '0');
+                pixelData.push(`#${r}${g}${b}`);
+            }
+
+             if (targetImage === centerImage) {
+                centerImageLoaded = true;
+                centerImagePixelData = pixelData;
+             } else if (targetImage === edgeImage) {
+                edgeImageLoaded = true;
+                edgeImagePixelData = pixelData;
+             }
+             blobTileSize = size; // Set the tile size from the first image loaded
+             console.log(`${targetImage === centerImage ? 'Center' : 'Edge'} image loaded. Size: ${size}`);
+             generateBlobTileset(); // Re-generate after loading new image
         };
         
         reader.readAsDataURL(file);
@@ -58,13 +94,13 @@ document.addEventListener('DOMContentLoaded', () => {
      * This version generates all 16 permutations of the two source tiles across the 4 quadrants.
      */
     function generateBlobTileset() {
-        if (!centerImageLoaded || !edgeImageLoaded) {
+        if (!centerImageLoaded || !edgeImageLoaded || !centerImagePixelData || !edgeImagePixelData) {
             alert("Bitte lade sowohl ein 'Center Tile (Y)' als auch ein 'Edge Tile (X)' hoch."); // Updated alert message
             return;
         }
 
-        const tileSize = centerImage.width;
-        if (tileSize <= 0 || tileSize !== edgeImage.width || centerImage.height !== edgeImage.height) {
+        const tileSize = blobTileSize; // Use the globally determined blobTileSize
+        if (tileSize <= 0) {
             alert("Die Bilder müssen die gleiche Grösse haben und quadratisch sein.");
             return;
         }
@@ -74,6 +110,9 @@ document.addEventListener('DOMContentLoaded', () => {
         blobCanvas.height = tileSize * 4;
         const ctx = blobCanvas.getContext('2d');
         ctx.imageSmoothingEnabled = false;
+
+        // Initialize Perlin noise for varied transitions
+        noiseGenerator.seed(Math.random());
 
         // --- Define Slices (Quadrants) ---
         const half = tileSize / 2;
@@ -85,13 +124,8 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         
         // --- Tile Pattern Generation ---
-        // As per the user's request, generate all 16 (2^4) combinations of two colors (C/Y, E/X)
-        // across 4 quadrants. The tile index 'i' (0-15) serves as a bitmask.
-        // Bit order: 1(TL), 2(TR), 3(BL), 4(BR)
         const tilePatterns = [];
         for (let i = 0; i < 16; i++) {
-            // Let's define the bit order as TopLeft, TopRight, BottomLeft, BottomRight
-            // So bit 3 -> TL, bit 2 -> TR, bit 1 -> BL, bit 0 -> BR
             const useCenterFor = {
                 tl: (i & 8) >> 3, // YXXX
                 tr: (i & 4) >> 2, // XYXX
@@ -129,23 +163,66 @@ document.addEventListener('DOMContentLoaded', () => {
             const destX = mapping.x * tileSize;
             const destY = mapping.y * tileSize;
 
-            // Draw the 4 quadrants for this tile
-            for (let i = 0; i < 4; i++) {
-                const quadrantSource = pattern[i]; // 'C' or 'E'
-                const sourceImage = (quadrantSource === 'C') ? centerImage : edgeImage;
-                const sliceData = quadrantPositions[i];
-                
-                const sx = sliceData[0];
-                const sy = sliceData[1];
-                const sw = sliceData[2];
-                const sh = sliceData[3];
+            if (blobTransitionToggle.checked) {
+                const currentBlobTileStrength = parseInt(blobTransitionStrengthInput.value, 10);
+                const maxDisplacement = (currentBlobTileStrength / 100) * (tileSize / 5);
+                const blendWidth = 1 + (currentBlobTileStrength / 100) * (tileSize / 4); // Use a slightly wider blend zone
 
-                const dx = destX + sx;
-                const dy = destY + sy;
-                const dw = sw;
-                const dh = sh;
-                
-                ctx.drawImage(sourceImage, sx, sy, sw, sh, dx, dy, dw, dh);
+                for (let y_local = 0; y_local < tileSize; y_local++) {
+                    for (let x_local = 0; x_local < tileSize; x_local++) {
+                        
+                        // 1. Get the four potential source colors for this pixel location
+                        const sourcePixelIndex = y_local * tileSize + x_local;
+                        const colorFromC = centerImagePixelData[sourcePixelIndex];
+                        const colorFromE = edgeImagePixelData[sourcePixelIndex];
+                        
+                        const c_tl = (pattern[0] === 'C') ? colorFromC : colorFromE;
+                        const c_tr = (pattern[1] === 'C') ? colorFromC : colorFromE;
+                        const c_bl = (pattern[2] === 'C') ? colorFromC : colorFromE;
+                        const c_br = (pattern[3] === 'C') ? colorFromC : colorFromE;
+
+                        // 2. Calculate noisy boundaries for X and Y
+                        const noiseX = (noiseGenerator.perlinNoise(y_local / 10, (destY + y_local) / 10) - 0.5) * 2;
+                        const boundaryX = half + noiseX * maxDisplacement;
+                        
+                        const noiseY = (noiseGenerator.perlinNoise(x_local / 10, (destX + x_local) / 10) - 0.5) * 2;
+                        const boundaryY = half + noiseY * maxDisplacement;
+
+                        // 3. Calculate blend ratios (u for horizontal, v for vertical)
+                        let u = (x_local - boundaryX + blendWidth / 2) / blendWidth;
+                        u = Math.max(0, Math.min(1, u));
+
+                        let v = (y_local - boundaryY + blendWidth / 2) / blendWidth;
+                        v = Math.max(0, Math.min(1, v));
+
+                        // 4. Perform bilinear interpolation
+                        const top_blend = blendHexColors(c_tl, c_tr, u);
+                        const bottom_blend = blendHexColors(c_bl, c_br, u);
+                        const finalPixelColor = blendHexColors(top_blend, bottom_blend, v);
+
+                        ctx.fillStyle = finalPixelColor;
+                        ctx.fillRect(destX + x_local, destY + y_local, 1, 1);
+                    }
+                }
+            } else {
+                // Original drawing logic (drawing quadrants directly)
+                for (let i = 0; i < 4; i++) {
+                    const quadrantSource = pattern[i]; // 'C' or 'E'
+                    const sourceImage = (quadrantSource === 'C') ? centerImage : edgeImage;
+                    const sliceData = quadrantPositions[i];
+                    
+                    const sx = sliceData[0];
+                    const sy = sliceData[1];
+                    const sw = sliceData[2];
+                    const sh = sliceData[3];
+
+                    const dx = destX + sx;
+                    const dy = destY + sy;
+                    const dw = sw;
+                    const dh = sh;
+                    
+                    ctx.drawImage(sourceImage, sx, sy, sw, sh, dx, dy, dw, dh);
+                }
             }
         }
         
@@ -187,4 +264,16 @@ document.addEventListener('DOMContentLoaded', () => {
     generateBtn.addEventListener('click', generateBlobTileset);
     exportBtn.addEventListener('click', downloadBlob);
 
+    blobTransitionToggle.addEventListener('change', () => {
+        blobTransitionControls.hidden = !blobTransitionToggle.checked;
+        generateBlobTileset();
+    });
+
+    blobTransitionStrengthInput.addEventListener('input', () => {
+        blobTransitionStrengthValueSpan.textContent = `${blobTransitionStrengthInput.value}%`;
+        generateBlobTileset();
+    });
+
+    // Initial state setup for blob transition controls
+    blobTransitionControls.hidden = !blobTransitionToggle.checked;
 });

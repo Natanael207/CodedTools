@@ -158,6 +158,18 @@
                     <input type="file" id="blob-edge-upload" accept="image/*">
                 </div>
                 
+                <div class="control-group">
+                    <label for="blob-transition-toggle">
+                        <input type="checkbox" id="blob-transition-toggle">
+                        Übergang aktivieren
+                    </label>
+                    <div id="blob-transition-controls" class="control-group" hidden>
+                        <label for="blob-transition-strength">Übergangsstärke:</label>
+                        <input type="range" id="blob-transition-strength" value="50" min="0" max="150" step="1">
+                        <span id="blob-transition-strength-value">50%</span>
+                    </div>
+                </div>
+                
                 <div class="preview-container">
                     <h2>Blob Vorschau</h2>
                     <canvas id="blob-canvas" width="320" height="320"></canvas>
