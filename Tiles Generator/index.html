@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prozeduraler Tile-Generator</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div class="container">
+        <h1>Prozeduraler 32x32 Tile-Generator</h1>
+
+        <main class="generator">
+            <div class="controls">
+                <h2>Steuerung</h2>
+                
+                <div class="control-group">
+                    <label for="symmetry">Symmetrie</label>
+                    <select id="symmetry">
+                        <option value="none" selected>Keine</option>
+                        <option value="vertical">Vertikal</option>
+                        <option value="horizontal">Horizontal</option>
+                        <option value="quadrant">Quadrant</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label for="algorithm">Generierungs-Algorithmus</label>
+                    <select id="algorithm">
+                        <option value="scatter" selected>Verstreut</option>
+                        <option value="cluster">Cluster (Perlin Noise)</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label>Farbpalette & Häufigkeit</label>
+                    <div id="color-palette-container">
+                        <!-- Colors will be dynamically added here -->
+                    </div>
+                    <button id="add-color-btn" class="add-btn">+ Farbe hinzufügen</button>
+                </div>
+                
+                <div class="button-group">
+                    <button id="generate-btn">Neu Generieren</button>
+                    <button id="export-btn">Als PNG Exportieren</button>
+                </div>
+            </div>
+
+            <div class="preview">
+                <h2>Vorschau</h2>
+                <canvas id="tile-canvas" width="320" height="320"></canvas>
+            </div>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
