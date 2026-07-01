@@ -4,9 +4,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // SECTION: DOM Element References
     // -----------------------------------------------------------------------------
     const centerUploadInput = document.getElementById('blob-center-upload');
-    const centerPreviewImg = document.getElementById('blob-center-preview');
+    // Removed centerPreviewImg reference
     const edgeUploadInput = document.getElementById('blob-edge-upload');
-    const edgePreviewImg = document.getElementById('blob-edge-preview');
+    // Removed edgePreviewImg reference
     const previewCanvas = document.getElementById('blob-canvas');
     const previewCtx = previewCanvas.getContext('2d');
     const generateBtn = document.getElementById('blob-generate-btn');
@@ -26,17 +26,17 @@ document.addEventListener('DOMContentLoaded', () => {
     // -----------------------------------------------------------------------------
 
     /**
-     * Handles loading a file from an input into an Image object and updating the preview.
+     * Handles loading a file from an input into an Image object.
+     * The preview element has been removed per user request.
      */
-    function handleImageUpload(event, targetImage, previewElement) {
+    function handleImageUpload(event, targetImage) { // Removed previewElement parameter
         const file = event.target.files[0];
         if (!file) return;
 
         const reader = new FileReader();
         reader.onload = (e) => {
             targetImage.src = e.target.result;
-            previewElement.src = e.target.result;
-            previewElement.style.display = 'block';
+            // Removed lines for previewElement.src and .style.display
         };
         
         targetImage.onload = () => {
@@ -59,7 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
      */
     function generateBlobTileset() {
         if (!centerImageLoaded || !edgeImageLoaded) {
-            alert("Bitte lade sowohl ein 'Center/Fill' (Farbe 2/Y) als auch ein 'Edge/Border' (Farbe 1/X) Tile hoch.");
+            alert("Bitte lade sowohl ein 'Center Tile (Y)' als auch ein 'Edge Tile (X)' hoch."); // Updated alert message
             return;
         }
 
@@ -182,8 +182,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // SECTION: Event Listener Setup
     // -----------------------------------------------------------------------------
     
-    centerUploadInput.addEventListener('change', (e) => handleImageUpload(e, centerImage, centerPreviewImg));
-    edgeUploadInput.addEventListener('change', (e) => handleImageUpload(e, edgeImage, edgePreviewImg));
+    centerUploadInput.addEventListener('change', (e) => handleImageUpload(e, centerImage));
+    edgeUploadInput.addEventListener('change', (e) => handleImageUpload(e, edgeImage));
     generateBtn.addEventListener('click', generateBlobTileset);
     exportBtn.addEventListener('click', downloadBlob);
 
