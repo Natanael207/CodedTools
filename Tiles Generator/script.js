@@ -147,7 +147,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Create a temporary grid to store the ID of the closest seed point for each pixel
-        const closestSeedIdGrid = Array.from({ length: tileHeight }, () => Array(tileWidth).fill(null));
+        const closestSeedIdGrid = Array.from({ length: yEnd }, () => Array(xEnd).fill(null));
 
         // Assign colors based on closest seed point
         for (let y = 0; y < yEnd; y++) {
