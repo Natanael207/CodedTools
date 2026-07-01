@@ -87,9 +87,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const addColorBtn = document.getElementById('add-color-btn');
     const generateBtn = document.getElementById('generate-btn');
     const exportBtn = document.getElementById('export-btn');
+    const tileWidthInput = document.getElementById('tile-width');
+    const tileHeightInput = document.getElementById('tile-height');
 
-    const TILE_SIZE = 32;
-    const PIXEL_SCALE = canvas.width / TILE_SIZE;
     let grid = [];
 
     // --- Color Management ---
@@ -147,7 +147,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Create a temporary grid to store the ID of the closest seed point for each pixel
-        const closestSeedIdGrid = Array.from({ length: TILE_SIZE }, () => Array(TILE_SIZE).fill(null));
+        const closestSeedIdGrid = Array.from({ length: tileHeight }, () => Array(tileWidth).fill(null));
 
         // Assign colors based on closest seed point
         for (let y = 0; y < yEnd; y++) {
@@ -273,7 +273,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function generateAndRender() {
-        grid = Array.from({ length: TILE_SIZE }, () => Array(TILE_SIZE).fill(null));
+        const tileWidth = parseInt(tileWidthInput.value, 10);
+        const tileHeight = parseInt(tileHeightInput.value, 10);
+
+        // Update canvas dimensions based on new tile size
+        const displayScale = 10; // Each tile pixel will be 'displayScale' screen pixels
+        canvas.width = tileWidth * displayScale;
+        canvas.height = tileHeight * displayScale;
+        
+        // Pass pixelScaleX and pixelScaleY to renderTile later.
+        const pixelScaleX = displayScale;
+        const pixelScaleY = displayScale;
+
+        grid = Array.from({ length: tileHeight }, () => Array(tileWidth).fill(null));
 
         const symmetry = symmetrySelect.value;
         const algorithm = algorithmSelect.value;
@@ -284,8 +296,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 weight: parseInt(entry.querySelector('.frequency-slider').value, 10)
             }));
         
-        const xEnd = (symmetry === 'vertical' || symmetry === 'quadrant') ? Math.ceil(TILE_SIZE / 2) : TILE_SIZE;
-        const yEnd = (symmetry === 'horizontal' || symmetry === 'quadrant') ? Math.ceil(TILE_SIZE / 2) : TILE_SIZE;
+        const xEnd = (symmetry === 'vertical' || symmetry === 'quadrant') ? Math.ceil(tileWidth / 2) : tileWidth;
+        const yEnd = (symmetry === 'horizontal' || symmetry === 'quadrant') ? Math.ceil(tileHeight / 2) : tileHeight;
 
         if (algorithm === 'cluster') {
             noiseGenerator.seed(Math.random());
@@ -355,17 +367,17 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         
-        applySymmetry(symmetry);
-        renderTile();
+        applySymmetry(symmetry, tileWidth, tileHeight);
+        renderTile(pixelScaleX, pixelScaleY, tileWidth, tileHeight);
     }
     
-    function applySymmetry(symmetry) {
-        for (let y = 0; y < TILE_SIZE; y++) {
-            for (let x = 0; x < TILE_SIZE; x++) {
+    function applySymmetry(symmetry, tileWidth, tileHeight) {
+        for (let y = 0; y < tileHeight; y++) {
+            for (let x = 0; x < tileWidth; x++) {
                 const sourceColor = grid[y][x];
                 if (sourceColor) {
-                    const hMirror = TILE_SIZE - 1 - x;
-                    const vMirror = TILE_SIZE - 1 - y;
+                    const hMirror = tileWidth - 1 - x;
+                    const vMirror = tileHeight - 1 - y;
 
                     if (symmetry === 'vertical') grid[y][hMirror] = sourceColor;
                     if (symmetry === 'horizontal') grid[vMirror][x] = sourceColor;
@@ -381,27 +393,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Rendering & Export ---
 
-    function renderTile() {
+    function renderTile(pixelScaleX, pixelScaleY, tileWidth, tileHeight) {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        for (let y = 0; y < TILE_SIZE; y++) {
-            for (let x = 0; x < TILE_SIZE; x++) {
+        for (let y = 0; y < tileHeight; y++) {
+            for (let x = 0; x < tileWidth; x++) {
                 if (grid[y][x]) {
                     ctx.fillStyle = grid[y][x];
-                    ctx.fillRect(x * PIXEL_SCALE, y * PIXEL_SCALE, PIXEL_SCALE, PIXEL_SCALE);
+                    ctx.fillRect(x * pixelScaleX, y * pixelScaleY, pixelScaleX, pixelScaleY);
                 }
             }
         }
     }
 
     function exportAsPNG() {
+        const tileWidth = parseInt(tileWidthInput.value, 10);
+        const tileHeight = parseInt(tileHeightInput.value, 10);
+
         const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = TILE_SIZE;
-        tempCanvas.height = TILE_SIZE;
+        tempCanvas.width = tileWidth;
+        tempCanvas.height = tileHeight;
         const tempCtx = tempCanvas.getContext('2d');
         
-        tempCtx.clearRect(0, 0, TILE_SIZE, TILE_SIZE);
-        for (let y = 0; y < TILE_SIZE; y++) {
-            for (let x = 0; x < TILE_SIZE; x++) {
+        tempCtx.clearRect(0, 0, tileWidth, tileHeight);
+        for (let y = 0; y < tileHeight; y++) {
+            for (let x = 0; x < tileWidth; x++) {
                 if (grid[y][x]) {
                     tempCtx.fillStyle = grid[y][x];
                     tempCtx.fillRect(x, y, 1, 1);
