@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Einfacher EPUB-Reader (Browser)</title>
+  <style>
+    :root{--bg:#f8f8f8;--fg:#111;--accent:#0066cc}
+    body{font-family:Inter, system-ui, Arial; margin:0; background:var(--bg); color:var(--fg)}
+    header{display:flex;gap:12px;align-items:center;padding:12px;border-bottom:1px solid rgba(0,0,0,.06);background:white}
+    header h1{font-size:1rem;margin:0}
+    .controls{display:flex;gap:8px;align-items:center;margin-left:auto}
+    button{padding:8px 10px;border-radius:8px;border:1px solid rgba(0,0,0,.08);background:white;cursor:pointer}
+    input[type=file]{display:none}
+    label.file-btn{padding:8px 10px;border-radius:8px;border:1px dashed rgba(0,0,0,.1);cursor:pointer}
+    main{display:grid;grid-template-columns:260px 1fr;height:calc(100vh - 62px)}
+    nav{padding:12px;border-right:1px solid rgba(0,0,0,.06);overflow:auto;background:#fff}
+    #toc{list-style:none;padding:0;margin:0}
+    #toc li{padding:6px 4px;cursor:pointer;border-radius:6px}
+    #toc li:hover{background:rgba(0,0,0,.03)}
+    #viewer{padding:12px;overflow:auto}
+    .toolbar{display:flex;gap:8px;align-items:center;padding:8px;background:#fff;border-bottom:1px solid rgba(0,0,0,.03)}
+    .status{font-size:.9rem;color:#666}
+    .progress{width:120px}
+    .setting{display:flex;gap:6px;align-items:center}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>EPUB Reader — lokal im Browser</h1>
+    <div class="controls">
+      <label class="file-btn" for="file">EPUB öffnen</label>
+      <input id="file" type="file" accept=".epub" />
+      <div class="setting">Schrift: <input id="fontsize" type="range" min="12" max="36" value="18" class="progress"></div>
+      <button id="themeBtn">Dunkel</button>
+      <button id="prev">←</button>
+      <button id="next">→</button>
+    </div>
+  </header>
+
+  <main>
+    <nav>
+      <div class="toolbar">
+        <div class="status" id="status">Keine Datei geladen</div>
+      </div>
+      <h3>Inhaltsverzeichnis</h3>
+      <ul id="toc"></ul>
+    </nav>
+
+    <section style="display:flex;flex-direction:column;">
+      <div class="toolbar">
+        <div id="title" style="font-weight:600"></div>
+        <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+          <label for="loc">Gehe zu:</label>
+          <input id="loc" type="text" placeholder="cfi oder href" style="width:220px;padding:6px;border-radius:6px;border:1px solid #ddd">
+          <button id="go">Los</button>
+        </div>
+      </div>
+
+      <div id="viewer" style="flex:1;background:white"></div>
+    </section>
+  </main>
+
+  <!-- Abhängigkeiten -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://unpkg.com/epubjs/dist/epub.min.js"></script>
+  <script>
+    let book, rendition;
+    const fileInput = document.getElementById('file');
+    const viewer = document.getElementById('viewer');
+    const status = document.getElementById('status');
+    const tocEl = document.getElementById('toc');
+    const titleEl = document.getElementById('title');
+    const prevBtn = document.getElementById('prev');
+    const nextBtn = document.getElementById('next');
+    const fontsize = document.getElementById('fontsize');
+    const themeBtn = document.getElementById('themeBtn');
+    const goBtn = document.getElementById('go');
+    const locInput = document.getElementById('loc');
+
+    let dark = false;
+
+    function setStatus(text){ status.textContent = text }
+
+    fileInput.addEventListener('change', async (e)=>{
+      const f = e.target.files[0];
+      if(!f) return;
+      setStatus('Lade Datei — bitte warten...');
+      const arrayBuffer = await f.arrayBuffer();
+      openBook(arrayBuffer, f.name);
+    });
+
+    async function openBook(data, filename){
+      try{ if(rendition) rendition.destroy(); } catch(e){}
+      book = ePub(data, { restore: true });
+      titleEl.textContent = filename || (await book.loaded.metadata).title || 'Unbekannt';
+
+      // Nur ein Kapitel auf einmal
+      rendition = book.renderTo('viewer', {
+	width: '100%',
+	height: '100%',
+	flow: 'scrolled',   // <- ändert auf scrollbaren Modus
+	spread: 'none'       // weiterhin keine Zwei-Seiten-Ansicht
+      });
+
+      rendition.themes.default({ 'body': { 'font-family': 'serif', 'line-height': '1.6' } });
+      rendition.themes.register('dark', { 'body': { 'background': '#111', 'color': '#e6e6e6' } });
+
+      rendition.display();
+
+      setStatus('Buch geladen');
+
+      const nav = await book.loaded.navigation;
+      populateTOC(nav.toc || []);
+
+      rendition.on('relocated', (location)=>{
+        setStatus('Seite: ' + (location.href || location.start.cfi || '').slice(0,60));
+      });
+
+      document.addEventListener('keydown', (ev)=>{
+        if(ev.key === 'ArrowRight') rendition.next();
+        if(ev.key === 'ArrowLeft') rendition.prev();
+      });
+
+      prevBtn.onclick = ()=> rendition.prev();
+      nextBtn.onclick = ()=> rendition.next();
+
+      fontsize.addEventListener('input', ()=>{
+        const size = fontsize.value + 'px';
+        rendition.themes.font({ 'body': { 'font-size': size } });
+      });
+
+      themeBtn.onclick = ()=>{
+        dark = !dark;
+        if(dark){ rendition.themes.select('dark'); themeBtn.textContent = 'Hell'; }
+        else { rendition.themes.select(); themeBtn.textContent = 'Dunkel'; }
+      };
+
+      goBtn.onclick = ()=>{
+        const v = locInput.value.trim();
+        if(!v) return; rendition.display(v);
+      };
+
+      window.addEventListener('resize', ()=> rendition.resize());
+    }
+
+    function populateTOC(toc){
+      tocEl.innerHTML = '';
+      if(!toc || toc.length === 0){ tocEl.innerHTML = '<li>Kein TOC gefunden</li>'; return }
+      toc.forEach(item=>{
+        const li = document.createElement('li');
+        li.textContent = (item.label && item.label.trim()) || item.href || 'Kapitel';
+        li.onclick = ()=> rendition.display(item.href);
+        tocEl.appendChild(li);
+        if(item.subitems && item.subitems.length){
+          const ul = document.createElement('ul'); ul.style.paddingLeft = '12px';
+          item.subitems.forEach(sub=>{
+            const sli = document.createElement('li'); sli.textContent = sub.label || sub.href; sli.onclick = ()=> rendition.display(sub.href);
+            ul.appendChild(sli);
+          });
+          tocEl.appendChild(ul);
+        }
+      });
+    }
+
+    document.addEventListener('dragover', (e)=>{ e.preventDefault(); });
+    document.addEventListener('drop', async (e)=>{
+      e.preventDefault();
+      const f = e.dataTransfer.files[0];
+      if(!f) return;
+      const buf = await f.arrayBuffer();
+      openBook(buf, f.name);
+    });
+
+    document.querySelector('.file-btn').addEventListener('click', ()=> fileInput.click());
+
+    setStatus('Wähle eine .epub Datei per Klick oder Drag & Drop');
+  </script>
+</body>
+</html>
