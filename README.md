@@ -5,4 +5,4 @@
 
 [epub reader](epub%20reader/index.html)
 
-[QR-Code Generator](QR%20Code%20Generator/index.html)
+[QR-Code generator](QR%20Code%20Generator/index.html)
