@@ -43,6 +43,7 @@
             padding: 10px;
             cursor: pointer;
             font-size: 18px;
+            z-index: 10; /* Z-Index hinzugefügt */
         }
 
         .info-button::before {
@@ -62,7 +63,39 @@
             white-space: nowrap;
             display: block;
             width: max-content;
+            z-index: 20; /* Z-Index hinzugefügt */
         }
+
+        /* Code-Toggle Button */
+        #code-toggle-button {
+            position: absolute;
+            top: 10px;
+            left: 90px;
+            background-color: #3498db;
+            border: none;
+            border-radius: 50%;
+            padding: 10px;
+            cursor: pointer;
+            font-size: 18px;
+        }
+
+        #code-toggle-button::before {
+            content: "👁️";
+        }
+
+        #code-container {
+            display: none;
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f4f4f4;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: monospace;
+            font-size: 14px;
+        }
+
     </style>
 </head>
 <body>
@@ -75,6 +108,12 @@
 
     <!-- Info-Schaltfläche für Undo und Redo -->
     <button class="info-button" data-info="Undo (Ctrl + Z) / Redo (Ctrl + Y)" onclick="toggleHistory()"></button>
+
+    <!-- Code-Toggle Button -->
+    <button id="code-toggle-button" onclick="toggleCode()"></button>
+
+    <!-- Code Container -->
+    <div id="code-container"></div>
 
     <script>
         mermaid.initialize({ startOnLoad: true });
@@ -212,6 +251,14 @@
             });
             document.getElementById("diagram-container").innerHTML = `<div class="mermaid">${mermaidText}</div>`;
             mermaid.init();
+            
+            // Update code display
+            document.getElementById("code-container").textContent = mermaidText;
+        }
+
+        function toggleCode() {
+            const codeContainer = document.getElementById("code-container");
+            codeContainer.style.display = codeContainer.style.display === "none" ? "block" : "none";
         }
 
         // Event Listener für Tastenkombinationen
