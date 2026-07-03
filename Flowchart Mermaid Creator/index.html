@@ -8,35 +8,91 @@
     <style>
         body { font-family: Arial, sans-serif; text-align: center; }
         #diagram-container { margin-top: 20px; }
-        .block { display: flex; align-items: center; gap: 10px; margin: 10px auto; }
+        .blocks-wrapper { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+        .block-row { display: flex; gap: 20px; }
+        .block-container { display: flex; align-items: center; gap: 10px; padding: 10px; border: 1px solid #000; border-radius: 5px; }
+        .block { padding: 5px; border: 1px solid #000; border-radius: 5px; }
+        .buttons-container { display: flex; gap: 5px; }
         button { cursor: pointer; padding: 5px; }
-        .buttons-container { display: flex; justify-content: flex-start; gap: 10px; }
+        .control-buttons { display: flex; justify-content: center; gap: 10px; margin-top: 10px; padding: 10px; border: 1px solid #000; border-radius: 5px; }
+        
+        /* Neue Buttons und Positionierung */
+        #reset-button {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background-color: #ff6347;
+            border: none;
+            border-radius: 50%;
+            padding: 10px;
+            cursor: pointer;
+        }
+
+        #reset-button::before {
+            content: "🗑️";
+            font-size: 18px;
+        }
+
+        .info-button {
+            position: absolute;
+            top: 10px;
+            left: 50px;
+            background-color: #f9d342;
+            border: none;
+            border-radius: 50%;
+            padding: 10px;
+            cursor: pointer;
+            font-size: 18px;
+        }
+
+        .info-button::before {
+            content: "💡";
+        }
+
+        .info-button:hover::after {
+            content: attr(data-info);
+            position: absolute;
+            top: 8px;
+            left: 40px;
+            background-color: #fff;
+            padding: 5px;
+            border: 1px solid #000;
+            border-radius: 3px;
+            font-size: 14px;
+            white-space: nowrap;
+            display: block;
+            width: max-content;
+        }
     </style>
 </head>
 <body>
     <h2>Interaktiver Diagrammeditor</h2>
-    <div id="blocks-container"></div>
-    <button onclick="resetDiagram()">Diagramm zurücksetzen</button>
-    <button onclick="undo()">Undo (Ctrl + Z)</button>
-    <button onclick="redo()">Redo (Ctrl + Y)</button>
+    <div id="blocks-container" class="blocks-wrapper"></div>
     <div id="diagram-container"></div>
 
+    <!-- Reset-Button -->
+    <button id="reset-button" onclick="resetDiagram()"></button>
+
+    <!-- Info-Schaltfläche für Undo und Redo -->
+    <button class="info-button" data-info="Undo (Ctrl + Z) / Redo (Ctrl + Y)" onclick="toggleHistory()"></button>
+
     <script>
-        // Mermaid initialisieren
         mermaid.initialize({ startOnLoad: true });
 
-        // Daten aus localStorage laden oder Standardwerte setzen
         let blocks = JSON.parse(localStorage.getItem("blocks")) || [{ id: 1, name: "Start" }];
         let connections = JSON.parse(localStorage.getItem("connections")) || [];
         let lastId = blocks.length;
-
-        // Verlaufe für Undo/Redo
         let history = [];
         let redoHistory = [];
 
         function saveToLocalStorage() {
             localStorage.setItem("blocks", JSON.stringify(blocks));
             localStorage.setItem("connections", JSON.stringify(connections));
+        }
+
+        function storeHistory() {
+            history.push({ blocks: JSON.parse(JSON.stringify(blocks)), connections: JSON.parse(JSON.stringify(connections)) });
+            redoHistory = [];
         }
 
         function addBlock(parentId) {
@@ -54,17 +110,13 @@
                 alert("Der Startblock kann nicht gelöscht werden!");
                 return;
             }
-
             function deleteRecursive(blockId) {
                 const childConnections = connections.filter(conn => conn.from === blockId);
                 childConnections.forEach(conn => deleteRecursive(conn.to));
-
                 blocks = blocks.filter(b => b.id !== blockId);
                 connections = connections.filter(conn => conn.from !== blockId && conn.to !== blockId);
             }
-
             deleteRecursive(id);
-
             saveToLocalStorage();
             storeHistory();
             render();
@@ -90,12 +142,6 @@
             render();
         }
 
-        // Funktion, um den aktuellen Zustand zu speichern
-        function storeHistory() {
-            history.push({ blocks: JSON.parse(JSON.stringify(blocks)), connections: JSON.parse(JSON.stringify(connections)) });
-            redoHistory = []; // Redo-Verlauf wird geleert, wenn eine neue Aktion durchgeführt wird
-        }
-
         function undo() {
             if (history.length > 1) {
                 redoHistory.push({ blocks: JSON.parse(JSON.stringify(blocks)), connections: JSON.parse(JSON.stringify(connections)) });
@@ -105,8 +151,6 @@
                 connections = JSON.parse(JSON.stringify(lastState.connections));
                 saveToLocalStorage();
                 render();
-            } else {
-                alert("Keine weiteren Undo-Aktionen verfügbar.");
             }
         }
 
@@ -118,49 +162,70 @@
                 history.push({ blocks: JSON.parse(JSON.stringify(blocks)), connections: JSON.parse(JSON.stringify(connections)) });
                 saveToLocalStorage();
                 render();
-            } else {
-                alert("Keine weiteren Redo-Aktionen verfügbar.");
             }
+        }
+
+        function toggleHistory() {
+            undo();
+            redo();
+        }
+
+        function getBlockHierarchy() {
+            let levels = {};
+            function traverse(id, depth) {
+                if (!levels[depth]) levels[depth] = [];
+                levels[depth].push(id);
+                connections.filter(conn => conn.from === id).forEach(conn => traverse(conn.to, depth + 1));
+            }
+            traverse(1, 0);
+            return levels;
         }
 
         function render() {
             const container = document.getElementById("blocks-container");
             container.innerHTML = "";
-            blocks.forEach(block => {
-                const div = document.createElement("div");
-                div.className = "block";
-                div.innerHTML = `
-                    <div class="buttons-container">
-                        <button onclick="addBlock(${block.id})">+</button>
-                        <button onclick="deleteBlock(${block.id})">-</button>
-                    </div>
-                    <span onclick="updateBlockName(${block.id})">${block.name}</span>
-                `;
-                container.appendChild(div);
+            const hierarchy = getBlockHierarchy();
+            Object.keys(hierarchy).sort().forEach(level => {
+                const row = document.createElement("div");
+                row.className = "block-row";
+                hierarchy[level].forEach(blockId => {
+                    const block = blocks.find(b => b.id === blockId);
+                    const div = document.createElement("div");
+                    div.className = "block-container";
+                    div.innerHTML = `
+                        <span onclick="updateBlockName(${block.id})">${block.name}</span>
+                        <div class="buttons-container">
+                            <button onclick="addBlock(${block.id})">+</button>
+                            <button onclick="deleteBlock(${block.id})">-</button>
+                        </div>
+                    `;
+                    row.appendChild(div);
+                });
+                container.appendChild(row);
             });
-
             let mermaidText = "graph TD;\n";
             blocks.forEach(block => {
-                mermaidText += `  ${block.id}["${block.name}"];\n`;
+                mermaidText += `  ${block.id}["${block.name}"]\n`;
             });
             connections.forEach(conn => {
-                mermaidText += `  ${conn.from} --> ${conn.to};\n`;
+                mermaidText += `  ${conn.from} --> ${conn.to}\n`;
             });
-
             document.getElementById("diagram-container").innerHTML = `<div class="mermaid">${mermaidText}</div>`;
             mermaid.init();
         }
 
-        render();
-
-        // Event Listener für Tastenkürzel (Ctrl + Z und Ctrl + Y)
-        document.addEventListener("keydown", function (e) {
-            if (e.ctrlKey && e.key === "z") {
-                undo();
-            } else if (e.ctrlKey && e.key === "y") {
-                redo();
+        // Event Listener für Tastenkombinationen
+        document.addEventListener("keydown", function(event) {
+            if (event.ctrlKey || event.metaKey) { 
+                if (event.key === 'z' || event.key === 'Z') {
+                    undo();
+                } else if (event.key === 'y' || event.key === 'Y') {
+                    redo();
+                }
             }
         });
+
+        render();
     </script>
 </body>
 </html>
