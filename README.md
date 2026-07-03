@@ -4,3 +4,5 @@
 [Flowchart Mermaid Creator](Flowchart%20Mermaid%20Creator/index.html)
 
 [epub reader](epub%20reader/index.html)
+
+[QR-Code Generator](QR%20Code%20Generator/index.html)
