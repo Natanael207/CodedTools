@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultimate QR-Code Generator</title>
+    <script type="text/javascript" src="https://unpkg.com/qr-code-styling@1.5.0/lib/qr-code-styling.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="container">
+    <div class="settings-panel">
+        <h2>1. Typ & Daten</h2>
+        <label for="qr-type">QR-Code Typ:</label>
+        <select id="qr-type">
+            <option value="text">📄 Normaler Text / URL</option>
+            <option value="wifi">📡 WLAN</option>
+            <option value="vcard">👤 vCard-Kontakt</option>
+            <option value="mail">📧 E-Mail</option>
+            <option value="phone">📞 Telefonnummer</option>
+            <option value="maps">📍 Google Maps Standort</option>
+        </select>
+
+        <div id="field-text" class="input-group">
+            <label for="input-text">Text oder URL:</label>
+            <input type="text" id="input-text" value="https://github.com">
+        </div>
+
+        <div id="field-wifi" class="input-group hidden">
+            <label for="wifi-ssid">Netzwerkname (SSID):</label>
+            <input type="text" id="wifi-ssid">
+            <label for="wifi-pass">Passwort:</label>
+            <input type="password" id="wifi-pass">
+            <label for="wifi-enc">Verschlüsselung:</label>
+            <select id="wifi-enc">
+                <option value="WPA">WPA/WPA2</option>
+                <option value="WEP">WEP</option>
+                <option value="nopass">Ungesichert</option>
+            </select>
+        </div>
+
+        <div id="field-vcard" class="input-group hidden">
+            <label for="card-name">Name:</label> <input type="text" id="card-name">
+            <label for="card-phone">Telefon:</label> <input type="text" id="card-phone">
+            <label for="card-email">E-Mail:</label> <input type="text" id="card-email">
+            <label for="card-org">Firma:</label> <input type="text" id="card-org">
+            <label for="card-website">Webseite:</label> <input type="text" id="card-website" placeholder="https://example.com">
+            <label for="card-address">Adresse:</label> <textarea id="card-address" rows="3" style="resize: vertical; max-height: 160px;"></textarea>
+        </div>
+
+        <div id="field-mail" class="input-group hidden">
+            <label for="mail-to">Empfänger E-Mail:</label> <input type="email" id="mail-to">
+            <label for="mail-sub">Betreff:</label> <input type="text" id="mail-sub">
+            <label for="mail-body">Nachricht:</label> <textarea id="mail-body"></textarea>
+        </div>
+
+        <div id="field-phone" class="input-group hidden">
+            <label for="phone-num">Telefonnummer:</label> <input type="tel" id="phone-num">
+        </div>
+
+        <div id="field-maps" class="input-group hidden">
+            <label for="maps-lat">Breitengrad (Latitude):</label> <input type="text" id="maps-lat" placeholder="z.B. 52.5200">
+            <label for="maps-lon">Längengrad (Longitude):</label> <input type="text" id="maps-lon" placeholder="z.B. 13.4050">
+        </div>
+
+        <hr class="separator">
+
+        <h2>2. Design & Styling</h2>
+        <label for="qr-size">Größe (Pixel):</label>
+        <select id="qr-size">
+            <option value="256">256 x 256 px</option>
+            <option value="512" selected>512 x 512 px</option>
+            <option value="1024">1024 x 1024 px</option>
+        </select>
+
+        <label for="color-dark">QR-Code Farbe:</label>
+        <div class="color-picker-wrapper">
+            <input type="color" id="color-dark" value="#000000">
+            <span id="color-dark-val" class="color-label">#000000</span>
+        </div>
+
+        <label for="color-bg">Hintergrundfarbe:</label>
+        <div class="color-picker-wrapper">
+            <input type="color" id="color-bg" value="#ffffff">
+            <span id="color-bg-val" class="color-label">#FFFFFF</span>
+        </div>
+
+        <label for="logo-file">Logo (optional):</label>
+        <input type="file" id="logo-file" accept="image/*">
+
+        <button id="btn-generate">QR-Code generieren</button>
+    </div>
+
+    <div class="preview-area">
+        <h2>3. Vorschau & Download</h2>
+        <div id="canvas-container"></div>
+        
+        <div class="download-buttons">
+            <button class="btn-download" data-format="png">PNG Download</button>
+            <button class="btn-download" data-format="svg">SVG Download</button>
+        </div>
+    </div>
+</div>
+
+<script src="skript.js"></script>
+</body>
+</html>
