@@ -17,6 +17,8 @@
     <h2>Interaktiver Diagrammeditor</h2>
     <div id="blocks-container"></div>
     <button onclick="resetDiagram()">Diagramm zurücksetzen</button>
+    <button onclick="undo()">Undo (Ctrl + Z)</button>
+    <button onclick="redo()">Redo (Ctrl + Y)</button>
     <div id="diagram-container"></div>
 
     <script>
@@ -27,6 +29,10 @@
         let blocks = JSON.parse(localStorage.getItem("blocks")) || [{ id: 1, name: "Start" }];
         let connections = JSON.parse(localStorage.getItem("connections")) || [];
         let lastId = blocks.length;
+
+        // Verlaufe für Undo/Redo
+        let history = [];
+        let redoHistory = [];
 
         function saveToLocalStorage() {
             localStorage.setItem("blocks", JSON.stringify(blocks));
@@ -39,6 +45,7 @@
             blocks.push({ id: lastId, name: newName });
             connections.push({ from: parentId, to: lastId });
             saveToLocalStorage();
+            storeHistory();
             render();
         }
 
@@ -48,11 +55,18 @@
                 return;
             }
 
-            // Entferne den Block und alle Verbindungen
-            blocks = blocks.filter(b => b.id !== id);
-            connections = connections.filter(conn => conn.from !== id && conn.to !== id);
+            function deleteRecursive(blockId) {
+                const childConnections = connections.filter(conn => conn.from === blockId);
+                childConnections.forEach(conn => deleteRecursive(conn.to));
+
+                blocks = blocks.filter(b => b.id !== blockId);
+                connections = connections.filter(conn => conn.from !== blockId && conn.to !== blockId);
+            }
+
+            deleteRecursive(id);
 
             saveToLocalStorage();
+            storeHistory();
             render();
         }
 
@@ -61,6 +75,7 @@
             if (block) {
                 block.name = prompt("Neuer Name:", block.name) || block.name;
                 saveToLocalStorage();
+                storeHistory();
                 render();
             }
         }
@@ -71,7 +86,41 @@
             blocks = [{ id: 1, name: "Start" }];
             connections = [];
             lastId = 1;
+            storeHistory();
             render();
+        }
+
+        // Funktion, um den aktuellen Zustand zu speichern
+        function storeHistory() {
+            history.push({ blocks: JSON.parse(JSON.stringify(blocks)), connections: JSON.parse(JSON.stringify(connections)) });
+            redoHistory = []; // Redo-Verlauf wird geleert, wenn eine neue Aktion durchgeführt wird
+        }
+
+        function undo() {
+            if (history.length > 1) {
+                redoHistory.push({ blocks: JSON.parse(JSON.stringify(blocks)), connections: JSON.parse(JSON.stringify(connections)) });
+                history.pop();
+                const lastState = history[history.length - 1];
+                blocks = JSON.parse(JSON.stringify(lastState.blocks));
+                connections = JSON.parse(JSON.stringify(lastState.connections));
+                saveToLocalStorage();
+                render();
+            } else {
+                alert("Keine weiteren Undo-Aktionen verfügbar.");
+            }
+        }
+
+        function redo() {
+            if (redoHistory.length > 0) {
+                const lastState = redoHistory.pop();
+                blocks = JSON.parse(JSON.stringify(lastState.blocks));
+                connections = JSON.parse(JSON.stringify(lastState.connections));
+                history.push({ blocks: JSON.parse(JSON.stringify(blocks)), connections: JSON.parse(JSON.stringify(connections)) });
+                saveToLocalStorage();
+                render();
+            } else {
+                alert("Keine weiteren Redo-Aktionen verfügbar.");
+            }
         }
 
         function render() {
@@ -103,6 +152,15 @@
         }
 
         render();
+
+        // Event Listener für Tastenkürzel (Ctrl + Z und Ctrl + Y)
+        document.addEventListener("keydown", function (e) {
+            if (e.ctrlKey && e.key === "z") {
+                undo();
+            } else if (e.ctrlKey && e.key === "y") {
+                redo();
+            }
+        });
     </script>
 </body>
 </html>
