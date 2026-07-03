@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interaktiver Diagrammeditor</title>
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ startOnLoad: true });
+    </script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        .block {
+            margin: 10px;
+            padding: 10px;
+            border: 2px solid black;
+            display: inline-block;
+            background-color: #f9f9f9;
+            cursor: pointer;
+        }
+        .diagram-container {
+            width: 100%;
+            height: 500px;
+        }
+        button {
+            margin-left: 10px;
+        }
+        input {
+            margin-left: 10px;
+            padding: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Interaktiver Diagrammeditor</h1>
+
+    <div id="diagram-container" class="diagram-container"></div>
+    <div id="blocks-container"></div>
+
+    <button onclick="clearStorage()">Lösche Diagramm</button>
+
+    <script>
+        // Versuchen, die blockCount, mermaidText und Blockstruktur aus localStorage zu laden
+        let blockCount = parseInt(localStorage.getItem('blockCount')) || 1;
+        let mermaidText = localStorage.getItem('mermaidText') || 'graph TD;\nStart;\n';
+        let blockStructure = JSON.parse(localStorage.getItem('blockStructure')) || [{ id: 'start-block', name: 'Start', connections: [] }];
+        
+        function addBlock(parentId) {
+            blockCount++; // Blockzähler erhöhen
+            const newBlockId = `Block${blockCount}`;
+            const parentBlockName = parentId === 'start-block' ? 'Start' : parentId;
+
+            // Hinzufügen eines neuen Blocks in den mermaid-Text
+            mermaidText += `${parentBlockName} --> ${newBlockId};\n`;
+
+            // Aktualisieren der Blockstruktur
+            blockStructure.push({ id: newBlockId, name: newBlockId, connections: [] });
+            const parentBlock = blockStructure.find(block => block.id === parentId);
+            parentBlock.connections.push(newBlockId);
+
+            // Speichern der Blockstruktur, des mermaidText und des blockCount im localStorage
+            localStorage.setItem('mermaidText', mermaidText);
+            localStorage.setItem('blockStructure', JSON.stringify(blockStructure));
+            localStorage.setItem('blockCount', blockCount.toString());
+
+            // Seite neu laden, um die Änderungen zu übernehmen
+            window.location.reload();
+        }
+
+        function removeBlock(blockId) {
+            // Entfernen des Blocks aus der Blockstruktur
+            blockStructure = blockStructure.filter(block => block.id !== blockId);
+
+            // Entfernen der Verbindungen des Blocks
+            blockStructure.forEach(block => {
+                block.connections = block.connections.filter(connection => connection !== blockId);
+            });
+
+            // Entfernen des Blockeintrags aus dem Mermaid-Text
+            mermaidText = mermaidText.split('\n').filter(line => !line.includes(blockId)).join('\n');
+
+            // Speichern der Blockstruktur und des Mermaid-Textes
+            localStorage.setItem('mermaidText', mermaidText);
+            localStorage.setItem('blockStructure', JSON.stringify(blockStructure));
+            localStorage.setItem('blockCount', blockCount.toString());
+
+            // Seite neu laden, um die Änderungen zu übernehmen
+            window.location.reload();
+        }
+
+        function renameBlock(blockId) {
+            let newName = document.getElementById(`edit-${blockId}`).value;
+
+            // Ersetze Leerzeichen durch einen Unterstrich oder andere zulässige Zeichen
+            newName = newName.replace(/\s+/g, '_');  // Leerzeichen durch Unterstrich ersetzen
+
+            const block = blockStructure.find(b => b.id === blockId);
+
+            // Blockname aktualisieren
+            block.name = newName;
+            mermaidText = mermaidText.split('\n').map(line => {
+                // Alle Verbindungen zu diesem Block auch umbenennen
+                if (line.includes(blockId)) {
+                    return line.replace(blockId, newName);
+                }
+                return line;
+            }).join('\n');
+
+            // Blockstruktur und Mermaid-Daten speichern
+            localStorage.setItem('mermaidText', mermaidText);
+            localStorage.setItem('blockStructure', JSON.stringify(blockStructure));
+
+            // Seite neu laden, um die Änderungen zu übernehmen
+            window.location.reload();
+        }
+
+
+        function toggleEdit(blockId) {
+            const blockNameElement = document.getElementById(`block-name-${blockId}`);
+            const inputField = document.getElementById(`edit-${blockId}`);
+
+            // Toggle für das Umbenennen
+            if (inputField.style.display === 'none') {
+                inputField.style.display = 'inline';
+                inputField.focus();
+                blockNameElement.style.display = 'none';
+            } else {
+                inputField.style.display = 'none';
+                blockNameElement.style.display = 'inline';
+            }
+        }
+
+        function renderMermaid() {
+            const diagramContainer = document.getElementById('diagram-container');
+            diagramContainer.innerHTML = '';  // Vorherige Diagramm-Darstellung löschen
+
+            // Erstelle ein neues Mermaid-Element mit der aktualisierten mermaidText
+            const graphElement = document.createElement('div');
+            graphElement.classList.add('mermaid');
+            graphElement.innerHTML = mermaidText;
+
+            // Füge das Diagramm-Element dem Container hinzu
+            diagramContainer.appendChild(graphElement);
+
+            // Mermaid rendern
+            mermaid.contentLoaded();
+        }
+
+        function clearStorage() {
+            // Löscht den gespeicherten Diagrammtext, die Blockstruktur und den Blockzähler aus dem localStorage
+            localStorage.removeItem('mermaidText');
+            localStorage.removeItem('blockStructure');
+            localStorage.removeItem('blockCount');
+            
+            // Setzt den Diagrammtext, die Blockstruktur und den Blockzähler auf leere Werte zurück
+            mermaidText = 'graph TD;\nStart;\n';
+            blockStructure = [{ id: 'start-block', name: 'Start', connections: [] }];
+            blockCount = 1;
+
+            // Seite neu laden, um die Änderungen zu übernehmen
+            window.location.reload();
+        }
+
+        // Initiales Diagramm und Blöcke laden
+        function loadDiagram() {
+            // Blöcke aus der gespeicherten Struktur wiederherstellen
+            const blocksContainer = document.getElementById('blocks-container');
+            blockStructure.forEach(block => {
+                const newBlock = document.createElement('div');
+                newBlock.classList.add('block');
+                newBlock.id = block.id;
+                newBlock.innerHTML = `
+                    <span id="block-name-${block.id}">${block.name}</span>
+                    <input type="text" id="edit-${block.id}" value="${block.name}" style="display:none;" onblur="renameBlock('${block.id}')">
+                    <button onclick="addBlock('${block.id}')">+</button>
+                    <button onclick="removeBlock('${block.id}')">Löschen</button>
+                    <button onclick="toggleEdit('${block.id}')">Umbenennen</button>
+                `;
+                blocksContainer.appendChild(newBlock);
+            });
+
+            // Das Diagramm rendern
+            renderMermaid();
+        }
+
+        // Initiales Diagramm und Blöcke laden
+        loadDiagram();
+    </script>
+</body>
+</html>
