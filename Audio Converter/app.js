@@ -1,10 +1,30 @@
-// Sicherstellen, dass wir auf die richtige Library-Struktur zugreifen
-const { FFmpeg } = window.FFmpegWasm || {};
-const { fetchFile } = window.FFmpegUtil || {};
+// 1. Sichere Erkennung: Wo hat der Browser FFmpeg versteckt?
+let FFmpegClass = null;
 
-if (!FFmpeg || !fetchFile) {
-    console.error("FFmpeg oder FFmpegUtil wurde nicht korrekt geladen. Prüfe die CDN-Links in der index.html!");
+if (window.FFmpegWasm && window.FFmpegWasm.FFmpeg) {
+    FFmpegClass = window.FFmpegWasm.FFmpeg;
+} else if (window.FFmpeg && window.FFmpeg.FFmpeg) {
+    FFmpegClass = window.FFmpeg.FFmpeg;
+} else if (window.FFmpeg) {
+    FFmpegClass = window.FFmpeg;
 }
+
+// 2. Sichere Erkennung für FFmpegUtil (fetchFile)
+let fetchFileFunc = null;
+if (window.FFmpegUtil && window.FFmpegUtil.fetchFile) {
+    fetchFileFunc = window.FFmpegUtil.fetchFile;
+} else if (window.fetchFile) {
+    fetchFileFunc = window.fetchFile;
+}
+
+// Überprüfung, ob alles da ist
+if (!FFmpegClass || !fetchFileFunc) {
+    console.error("FFmpeg-Klassen konnten nicht im globalen Window-Objekt gefunden werden!");
+}
+
+// Die Variablen für den restlichen Code bereitstellen
+const FFmpeg = FFmpegClass;
+const fetchFile = fetchFileFunc;
 
 let ffmpeg = null;
 
