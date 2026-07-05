@@ -1,5 +1,15 @@
-const { FFmpeg } = window.FFmpegWasm;
+// FFmpeg.wasm korrekt aus dem globalen Fenster-Objekt auslesen
+const FFmpegWasm = window.FFmpegWasm || window.FFmpeg;
+if (!FFmpegWasm) {
+    console.error("FFmpeg konnte nicht geladen werden! Überprüfe die CDN-Links in der index.html.");
+}
+
+const FFmpeg = FFmpegWasm.FFmpeg;
 const { fetchFile } = window.FFmpegUtil;
+
+let ffmpeg = null;
+
+// ... HIER FOLGT DER REST DEINES BESTEHENDEN CODES (ab const uploadInput = ...)
 
 let ffmpeg = null;
 
