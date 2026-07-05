@@ -1,7 +1,10 @@
-const { FFmpeg } = window.FFmpegWasm;
-const { fetchFile } = window.FFmpegUtil;
+const { createFFmpeg, fetchFile } = FFmpeg;
 
-let ffmpeg = null;
+// HIER IST DIE ÄNDERUNG: Wir fügen den Standard-corePath für v0.11 hinzu
+const ffmpeg = createFFmpeg({ 
+    log: true,
+    corePath: 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js' 
+});
 
 const uploadInput = document.getElementById('audio-upload');
 const formatSelect = document.getElementById('format-select');
@@ -12,22 +15,18 @@ const downloadArea = document.getElementById('download-area');
 // 1. FFmpeg im Hintergrund laden
 async function loadFFmpeg() {
     statusDiv.innerText = "Status: Lade Konverter-Engine (FFmpeg)...";
-    ffmpeg = new FFmpeg();
-    
-    // Loggt den Fortschritt in die Browser-Konsole
-    ffmpeg.on('log', ({ message }) => {
-        console.log(message);
-    });
-
-    await ffmpeg.load({
-        coreURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js',
-    });
-    statusDiv.innerText = "Status: Konverter bereit!";
+    try {
+        await ffmpeg.load();
+        statusDiv.innerText = "Status: Konverter bereit!";
+    } catch (error) {
+        console.error(error);
+        statusDiv.innerText = "Status: Fehler beim Laden der Engine.";
+    }
 }
 
 // 2. Die Konvertierung ausführen
 async function convertAudio() {
-    if (!ffmpeg) {
+    if (!ffmpeg.isLoaded()) {
         statusDiv.innerText = "Status: FFmpeg wird noch geladen. Bitte warten.";
         return;
     }
@@ -39,37 +38,33 @@ async function convertAudio() {
     }
 
     const targetFormat = formatSelect.value;
-    const inputName = 'input_file';
-    const outputName = `output_file.${targetFormat}`;
+    const inputName = file.name; 
+    const outputName = `output.${targetFormat}`;
 
     statusDiv.innerText = "Status: Verarbeite Datei...";
-    downloadArea.innerHTML = ""; // Alten Download-Link entfernen
+    downloadArea.innerHTML = ""; 
 
     try {
-        // Datei in das virtuelle FFmpeg-Dateisystem schreiben
-        await ffmpeg.writeFile(inputName, await fetchFile(file));
-
+        ffmpeg.FS('writeFile', inputName, await fetchFile(file));
         statusDiv.innerText = `Status: Konvertiere zu ${targetFormat.toUpperCase()}...`;
         
-        // Den FFmpeg-Befehl ausführen (z.B. ffmpeg -i input_file output_file.mp3)
-        await ffmpeg.exec(['-i', inputName, outputName]);
-
+        await ffmpeg.run('-i', inputName, outputName);
         statusDiv.innerText = "Status: Konvertierung erfolgreich!";
 
-        // Die fertige Datei aus dem virtuellen Dateisystem auslesen
-        const data = await ffmpeg.readFile(outputName);
-
-        // Datei für den Browser als Download-Link bereitstellen
+        const data = ffmpeg.FS('readFile', outputName);
         const blob = new Blob([data.buffer], { type: `audio/${targetFormat}` });
         const url = URL.createObjectURL(blob);
 
         const downloadLink = document.createElement('a');
         downloadLink.href = url;
         downloadLink.download = `konvertiert_${file.name.split('.')[0]}.${targetFormat}`;
-        downloadLink.innerText = "👉 Klicke hier, um deine Datei herunterzuladen 👈";
+        downloadLink.innerText = "👉 Klicke hier für den Download 👈";
         downloadLink.className = "download-button";
         
         downloadArea.appendChild(downloadLink);
+
+        ffmpeg.FS('unlink', inputName);
+        ffmpeg.FS('unlink', outputName);
 
     } catch (error) {
         console.error(error);
@@ -77,8 +72,5 @@ async function convertAudio() {
     }
 }
 
-// Event-Listener setzen
 convertBtn.addEventListener('click', convertAudio);
-
-// FFmpeg direkt beim Laden der Seite starten
 loadFFmpeg();
