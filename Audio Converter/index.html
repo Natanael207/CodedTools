@@ -1,48 +1,51 @@
 <!DOCTYPE html>
 <html lang="de">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Audio Converter</title>
-    <script src="coi-serviceworker.js"></script>
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
-    <div class="converter-container">
-        <h2>Audio Converter</h2>
-        
-        <input type="file" id="audio-upload" accept="audio/*">
-        
-        <label for="format-select">Zielformat:</label>
-        <select id="format-select">
-          <optgroup label="Standard (Klein & Praktisch)">
-            <option value="mp3">MP3 (Universal-Standard)</option>
-            <option value="aac">AAC (Apple & YouTube Standard)</option>
-            <option value="ogg">OGG Vorbis (Spotify & Games)</option>
-            <option value="m4a">M4A (Moderne Audiocodecs)</option>
-            <option value="wma">WMA (Windows Media Audio)</option>
-        </optgroup>
-        
-        <optgroup label="Verlustfrei (Beste Qualität / Studio)">
-          <option value="wav">WAV (Unkomprimiert, Riesig)</option>
-          <option value="flac">FLAC (Verlustfrei komprimiert)</option>
-          <option value="alac">ALAC (Apples verlustfreier Codec)</option>
-          <option value="aiff">AIFF (Apple Studio-Standard)</option>
-        </optgroup>
-        
-        <optgroup label="Spezial-Formate">
-          <option value="opus">OPUS (Extrem gut für Sprache/Streaming)</option>
-          <option value="amr">AMR (Altes Handy-Sprachformat)</option>
-        </optgroup>
-      </select>
-      
-      <button id="convert-btn">Konvertieren</button>
-        
-        <div id="status">Status: Bereit</div>
-        <div id="download-area"></div>
-    </div>
 
-    <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.4/dist/ffmpeg.min.js"></script>
-    <script src="app.js"></script>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Audio Converter</title>
+  <script src="coi-serviceworker.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <div class="converter-container">
+    <h2>Audio Converter</h2>
+
+    <input type="file" id="audio-upload" accept="audio/*">
+
+    <label for="format-select">Zielformat:</label>
+    <select id="format-select">
+      <optgroup label="Standard (Klein & Praktisch)">
+        <option value="mp3">MP3 (Universal-Standard)</option>
+        <option value="aac">AAC (Apple & YouTube Standard)</option>
+        <option value="ogg">OGG Vorbis (Spotify & Games)</option>
+        <option value="m4a">M4A (Moderne Audiocodecs)</option>
+        <option value="wma">WMA (Windows Media Audio)</option>
+      </optgroup>
+
+      <optgroup label="Verlustfrei (Beste Qualität / Studio)">
+        <option value="wav">WAV (Unkomprimiert, Riesig)</option>
+        <option value="flac">FLAC (Verlustfrei komprimiert)</option>
+        <option value="alac">ALAC (Apples verlustfreier Codec)</option>
+        <option value="aiff">AIFF (Apple Studio-Standard)</option>
+      </optgroup>
+
+      <optgroup label="Spezial-Formate">
+        <option value="opus">OPUS (Extrem gut für Sprache/Streaming)</option>
+        <option value="amr">AMR (Altes Handy-Sprachformat)</option>
+      </optgroup>
+    </select>
+
+    <button id="convert-btn">Konvertieren</button>
+
+    <div id="status">Status: Bereit</div>
+    <div id="download-area"></div>
+  </div>
+
+  <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.4/dist/ffmpeg.min.js"></script>
+  <script src="app.js"></script>
 </body>
+
 </html>
