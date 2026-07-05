@@ -1,8 +1,10 @@
-// Bei v0.11 extrahieren wir createFFmpeg und fetchFile direkt aus dem globalen FFmpeg-Objekt
 const { createFFmpeg, fetchFile } = FFmpeg;
 
-// FFmpeg-Instanz erstellen und Loggen aktivieren
-const ffmpeg = createFFmpeg({ log: true });
+// HIER IST DIE ÄNDERUNG: Wir fügen den Standard-corePath für v0.11 hinzu
+const ffmpeg = createFFmpeg({ 
+    log: true,
+    corePath: 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js' 
+});
 
 const uploadInput = document.getElementById('audio-upload');
 const formatSelect = document.getElementById('format-select');
@@ -24,7 +26,6 @@ async function loadFFmpeg() {
 
 // 2. Die Konvertierung ausführen
 async function convertAudio() {
-    // Prüfen, ob FFmpeg fertig geladen ist
     if (!ffmpeg.isLoaded()) {
         statusDiv.innerText = "Status: FFmpeg wird noch geladen. Bitte warten.";
         return;
@@ -37,27 +38,20 @@ async function convertAudio() {
     }
 
     const targetFormat = formatSelect.value;
-    const inputName = file.name; // Wir behalten den echten Namen temporär
+    const inputName = file.name; 
     const outputName = `output.${targetFormat}`;
 
     statusDiv.innerText = "Status: Verarbeite Datei...";
     downloadArea.innerHTML = ""; 
 
     try {
-        // Datei ins virtuelle Dateisystem schreiben
         ffmpeg.FS('writeFile', inputName, await fetchFile(file));
-
         statusDiv.innerText = `Status: Konvertiere zu ${targetFormat.toUpperCase()}...`;
         
-        // Befehl ausführen
         await ffmpeg.run('-i', inputName, outputName);
-
         statusDiv.innerText = "Status: Konvertierung erfolgreich!";
 
-        // Datei auslesen
         const data = ffmpeg.FS('readFile', outputName);
-
-        // Download-Link generieren
         const blob = new Blob([data.buffer], { type: `audio/${targetFormat}` });
         const url = URL.createObjectURL(blob);
 
@@ -69,7 +63,6 @@ async function convertAudio() {
         
         downloadArea.appendChild(downloadLink);
 
-        // Virtuelle Dateien aufräumen, um RAM zu sparen
         ffmpeg.FS('unlink', inputName);
         ffmpeg.FS('unlink', outputName);
 
@@ -79,8 +72,5 @@ async function convertAudio() {
     }
 }
 
-// Event-Listener
 convertBtn.addEventListener('click', convertAudio);
-
-// Direkt starten
 loadFFmpeg();
