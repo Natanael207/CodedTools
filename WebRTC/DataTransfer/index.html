@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebRTC P2P Raum</title>
+    <title>Dauerhafter WebRTC P2P Raum</title>
     <style>
         body { font-family: Arial, sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; line-height: 1.6; }
         .box { border: 1px solid #ccc; padding: 20px; border-radius: 8px; margin-bottom: 20px; background: #f9f9f9; }
@@ -12,7 +12,22 @@
         input[type="text"] { width: 100%; padding: 8px; margin: 10px 0; box-sizing: border-box; }
         #status { font-weight: bold; color: #333; background: #e2e8f0; }
         .hidden { display: none; }
+        
+        /* QR-Code Design */
+        #qrContainer {
+            margin: 20px 0;
+            padding: 15px;
+            background: #fff;
+            border: 1px dashed #4a5568;
+            border-radius: 6px;
+            text-align: center;
+        }
+        #qrcode {
+            display: inline-block;
+            margin: 10px 0;
+        }
     </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
 
@@ -22,6 +37,13 @@
     <div id="setupArea" class="box">
         <h3>Raum-Optionen</h3>
         <button id="createRoomBtn">1. Raum erstellen (Host)</button>
+        
+        <div id="qrContainer" class="hidden">
+            <p><strong>Scannen zum Beitreten:</strong></p>
+            <div id="qrcode"></div>
+            <p><small>Oder gib diese ID ein: <span id="generatedRoomId"></span></small></p>
+        </div>
+
         <p>Oder einem bestehenden Raum beitreten:</p>
         <input type="text" id="roomIdInput" placeholder="Raum-ID hier einfügen">
         <button id="joinRoomBtn">2. Raum beitreten (Gast)</button>
@@ -40,7 +62,6 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        // collection und getDocs wurden hier für das automatische Aufräumen hinzugefügt
         import { getFirestore, doc, setDoc, onSnapshot, updateDoc, getDoc, deleteDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         // TODO: ERSETZE DIESE KONFIGURATION MIT DEINEN FIREBASE-DATEN!
@@ -71,8 +92,12 @@
         const joinRoomBtn = document.getElementById('joinRoomBtn');
         const roomIdInput = document.getElementById('roomIdInput');
 
-        const CHUNK_SIZE = 16384;
+        // QR-Code Elemente
+        const qrContainer = document.getElementById('qrContainer');
+        const qrcodeDiv = document.getElementById('qrcode');
+        const generatedRoomIdSpan = document.getElementById('generatedRoomId');
 
+        const CHUNK_SIZE = 16384;
         let incomingFileMeta = null;
         let receivedChunks = [];
         let receivedSize = 0;
@@ -108,19 +133,16 @@
                 } else {
                     receivedChunks.push(event.data);
                     receivedSize += event.data.byteLength;
-                    
                     statusDiv.innerText = `Status: Empfange... (${Math.round((receivedSize / incomingFileMeta.size) * 100)}%)`;
 
                     if (receivedSize >= incomingFileMeta.size) {
                         statusDiv.innerText = `Status: "${incomingFileMeta.name}" erfolgreich empfangen! Download startet...`;
-                        
                         const blob = new Blob(receivedChunks);
                         const url = URL.createObjectURL(blob);
                         const a = document.createElement('a');
                         a.href = url;
                         a.download = incomingFileMeta.name;
                         a.click();
-                        
                         incomingFileMeta = null;
                         receivedChunks = [];
                         receivedSize = 0;
@@ -136,11 +158,7 @@
             sendFileBtn.disabled = true;
             fileInput.disabled = true;
 
-            dataChannel.send(JSON.stringify({
-                type: 'meta',
-                name: file.name,
-                size: file.size
-            }));
+            dataChannel.send(JSON.stringify({ type: 'meta', name: file.name, size: file.size }));
 
             const reader = new FileReader();
             let offset = 0;
@@ -148,13 +166,12 @@
             reader.onload = (e) => {
                 dataChannel.send(e.target.result);
                 offset += e.target.result.byteLength;
-
                 statusDiv.innerText = `Status: Sende... (${Math.round((offset / file.size) * 100)}%)`;
 
                 if (offset < file.size) {
                     readNextChunk();
                 } else {
-                    statusDiv.innerText = `Status: "${file.name}" erfolgreich gesendet! Du kannst direkt die nächste Datei wählen.`;
+                    statusDiv.innerText = `Status: "${file.name}" erfolgreich gesendet!`;
                     sendFileBtn.disabled = false;
                     fileInput.disabled = false;
                     fileInput.value = "";
@@ -165,7 +182,6 @@
                 const slice = file.slice(offset, offset + CHUNK_SIZE);
                 reader.readAsArrayBuffer(slice);
             };
-
             setTimeout(readNextChunk, 100);
         };
 
@@ -175,15 +191,12 @@
         createRoomBtn.onclick = async () => {
             statusDiv.innerText = "Status: Räume aufräumen & initialisieren...";
             
-            // AUTOMATISCHES AUFRÄUMEN alter Daten-Leichen (älter als 5 Minuten)
             try {
                 const querySnapshot = await getDocs(collection(db, "rooms"));
                 const jetzt = Date.now();
-                
                 querySnapshot.forEach(async (roomDoc) => {
                     const data = roomDoc.data();
-                    // Wenn der Raum ein Erstellungsdatum hat und älter als 5 minuten ist -> Löschen
-                    if (data.createdAt && (jetzt - data.createdAt > 1000 * 60 * 5)) {
+                    if (data.createdAt && (jetzt - data.createdAt > 3600000)) {
                         await deleteDoc(doc(db, "rooms", roomDoc.id));
                     }
                 });
@@ -207,18 +220,29 @@
             const offer = await peerConnection.createOffer();
             await peerConnection.setLocalDescription(offer);
 
-            // Wir speichern "createdAt" mit ab, damit wir das Alter berechnen können
             await setDoc(currentRoomRef, {
                 offer: { type: offer.type, sdp: offer.sdp },
                 createdAt: Date.now()
             });
 
-            enableTransferUI(roomId);
             statusDiv.innerText = `Status: Raum erstellt! Warte auf Partner...`;
+            
+            // QR-Code für diesen spezifischen Link erzeugen
+            qrcodeDiv.innerHTML = ""; 
+            const joinUrl = `${window.location.origin}${window.location.pathname}?room=${roomId}`;
+            new QRCode(qrcodeDiv, {
+                text: joinUrl,
+                width: 180,
+                height: 180
+            });
+            generatedRoomIdSpan.innerText = roomId;
+            qrContainer.classList.remove('hidden'); 
 
             onSnapshot(currentRoomRef, async (snapshot) => {
                 const data = snapshot.data();
                 if (data && data.answer && !peerConnection.currentRemoteDescription) {
+                    qrContainer.classList.add('hidden'); // QR-Code ausblenden bei Erfolg
+                    enableTransferUI(roomId);
                     await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
                 }
                 if (data && data.receiverCandidates) {
@@ -269,16 +293,24 @@
                 }
             });
 
-            // Nach erfolgreichem Verbindungsaufbau: Lösche den Raum nach 5 Sekunden
             setTimeout(async () => {
                 try {
                     await deleteDoc(currentRoomRef);
-                    console.log("Firebase-Raum wurde erfolgreich aufgeräumt!");
                 } catch (e) {
-                    console.log("Fehler beim sofortigen Löschen:", e);
+                    console.log("Fehler beim Löschen:", e);
                 }
             }, 5000);
         };
+
+        // Beim Laden prüfen, ob eine Raum-ID in der URL steht (?room=xxxxx)
+        window.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const roomFromUrl = urlParams.get('room');
+            if (roomFromUrl) {
+                roomIdInput.value = roomFromUrl;
+                statusDiv.innerText = "Status: Raum-ID aus QR-Code erkannt. Klicke auf 'Raum beitreten'!";
+            }
+        });
     </script>
 </body>
 </html>
