@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebRTC P2P Raum</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; line-height: 1.6; }
+        .box { border: 1px solid #ccc; padding: 20px; border-radius: 8px; margin-bottom: 20px; background: #f9f9f9; }
+        button { background: #007bff; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        input[type="text"] { width: 100%; padding: 8px; margin: 10px 0; box-sizing: border-box; }
+        #status { font-weight: bold; color: #333; background: #e2e8f0; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+    <h2>Dauerhafter WebRTC P2P Dateitransfer</h2>
+    <div id="status" class="box">Status: Bereit. Erstelle einen Raum oder tritt einem bei.</div>
+
+    <div id="setupArea" class="box">
+        <h3>Raum-Optionen</h3>
+        <button id="createRoomBtn">1. Raum erstellen (Host)</button>
+        <p>Oder einem bestehenden Raum beitreten:</p>
+        <input type="text" id="roomIdInput" placeholder="Raum-ID hier einfügen">
+        <button id="joinRoomBtn">2. Raum beitreten (Gast)</button>
+    </div>
+
+    <div id="transferArea" class="box hidden">
+        <h3>Dateitransfer</h3>
+        <p><strong>Raum-ID:</strong> <span id="currentRoomId" style="color: green;">-</span></p>
+        
+        <div style="margin-bottom: 20px;">
+            <label for="fileInput"><strong>Datei senden:</strong></label><br><br>
+            <input type="file" id="fileInput" disabled>
+            <button id="sendFileBtn" disabled>Datei senden</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        // collection und getDocs wurden hier für das automatische Aufräumen hinzugefügt
+        import { getFirestore, doc, setDoc, onSnapshot, updateDoc, getDoc, deleteDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        // TODO: ERSETZE DIESE KONFIGURATION MIT DEINEN FIREBASE-DATEN!
+        const firebaseConfig = {
+            apiKey: "AIzaSyCKNORGzW6wQymKjVemEraI70rgpcFIxwU",
+            authDomain: "webrtc-file-transfer-ab804.firebaseapp.com",
+            projectId: "webrtc-file-transfer-ab804",
+            storageBucket: "webrtc-file-transfer-ab804.firebasestorage.app",
+            messagingSenderId: "780345941054",
+            appId: "1:780345941054:web:e9eb34fa3ce44fe6e4c56f"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const configuration = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+
+        let peerConnection;
+        let dataChannel;
+        let currentRoomRef;
+
+        const statusDiv = document.getElementById('status');
+        const setupArea = document.getElementById('setupArea');
+        const transferArea = document.getElementById('transferArea');
+        const currentRoomIdSpan = document.getElementById('currentRoomId');
+        const fileInput = document.getElementById('fileInput');
+        const sendFileBtn = document.getElementById('sendFileBtn');
+        const createRoomBtn = document.getElementById('createRoomBtn');
+        const joinRoomBtn = document.getElementById('joinRoomBtn');
+        const roomIdInput = document.getElementById('roomIdInput');
+
+        const CHUNK_SIZE = 16384;
+
+        let incomingFileMeta = null;
+        let receivedChunks = [];
+        let receivedSize = 0;
+
+        function enableTransferUI(roomId) {
+            setupArea.classList.add('hidden');
+            transferArea.classList.remove('hidden');
+            currentRoomIdSpan.innerText = roomId;
+        }
+
+        function setupDataChannelListeners() {
+            dataChannel.onopen = () => {
+                statusDiv.innerText = "Status: Verbunden! Du kannst jetzt beliebig viele Dateien nacheinander senden.";
+                fileInput.disabled = false;
+                sendFileBtn.disabled = false;
+            };
+
+            dataChannel.onclose = () => {
+                statusDiv.innerText = "Status: Verbindung verloren. Bitte lade die Seite neu.";
+                fileInput.disabled = true;
+                sendFileBtn.disabled = true;
+            };
+
+            dataChannel.onmessage = (event) => {
+                if (typeof event.data === 'string') {
+                    const message = JSON.parse(event.data);
+                    if (message.type === 'meta') {
+                        incomingFileMeta = message;
+                        receivedChunks = [];
+                        receivedSize = 0;
+                        statusDiv.innerText = `Status: Empfange Datei "${incomingFileMeta.name}"...`;
+                    }
+                } else {
+                    receivedChunks.push(event.data);
+                    receivedSize += event.data.byteLength;
+                    
+                    statusDiv.innerText = `Status: Empfange... (${Math.round((receivedSize / incomingFileMeta.size) * 100)}%)`;
+
+                    if (receivedSize >= incomingFileMeta.size) {
+                        statusDiv.innerText = `Status: "${incomingFileMeta.name}" erfolgreich empfangen! Download startet...`;
+                        
+                        const blob = new Blob(receivedChunks);
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = incomingFileMeta.name;
+                        a.click();
+                        
+                        incomingFileMeta = null;
+                        receivedChunks = [];
+                        receivedSize = 0;
+                    }
+                }
+            };
+        }
+
+        sendFileBtn.onclick = () => {
+            const file = fileInput.files[0];
+            if (!file) return alert("Bitte wähle eine Datei aus!");
+
+            sendFileBtn.disabled = true;
+            fileInput.disabled = true;
+
+            dataChannel.send(JSON.stringify({
+                type: 'meta',
+                name: file.name,
+                size: file.size
+            }));
+
+            const reader = new FileReader();
+            let offset = 0;
+
+            reader.onload = (e) => {
+                dataChannel.send(e.target.result);
+                offset += e.target.result.byteLength;
+
+                statusDiv.innerText = `Status: Sende... (${Math.round((offset / file.size) * 100)}%)`;
+
+                if (offset < file.size) {
+                    readNextChunk();
+                } else {
+                    statusDiv.innerText = `Status: "${file.name}" erfolgreich gesendet! Du kannst direkt die nächste Datei wählen.`;
+                    sendFileBtn.disabled = false;
+                    fileInput.disabled = false;
+                    fileInput.value = "";
+                }
+            };
+
+            const readNextChunk = () => {
+                const slice = file.slice(offset, offset + CHUNK_SIZE);
+                reader.readAsArrayBuffer(slice);
+            };
+
+            setTimeout(readNextChunk, 100);
+        };
+
+        // ==========================================
+        // HOST / RAUM ERSTELLEN
+        // ==========================================
+        createRoomBtn.onclick = async () => {
+            statusDiv.innerText = "Status: Räume aufräumen & initialisieren...";
+            
+            // AUTOMATISCHES AUFRÄUMEN alter Daten-Leichen (älter als 5 Minuten)
+            try {
+                const querySnapshot = await getDocs(collection(db, "rooms"));
+                const jetzt = Date.now();
+                
+                querySnapshot.forEach(async (roomDoc) => {
+                    const data = roomDoc.data();
+                    // Wenn der Raum ein Erstellungsdatum hat und älter als 5 minuten ist -> Löschen
+                    if (data.createdAt && (jetzt - data.createdAt > 1000 * 60 * 5)) {
+                        await deleteDoc(doc(db, "rooms", roomDoc.id));
+                    }
+                });
+            } catch (e) {
+                console.log("Hinweis beim automatischen Aufräumen:", e);
+            }
+
+            const roomId = Math.random().toString(36).substring(2, 9);
+            currentRoomRef = doc(db, "rooms", roomId);
+
+            peerConnection = new RTCPeerConnection(configuration);
+            dataChannel = peerConnection.createDataChannel("persistentFileChannel");
+            setupDataChannelListeners();
+
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate) {
+                    updateDoc(currentRoomRef, { senderCandidates: event.candidate.toJSON() });
+                }
+            };
+
+            const offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
+
+            // Wir speichern "createdAt" mit ab, damit wir das Alter berechnen können
+            await setDoc(currentRoomRef, {
+                offer: { type: offer.type, sdp: offer.sdp },
+                createdAt: Date.now()
+            });
+
+            enableTransferUI(roomId);
+            statusDiv.innerText = `Status: Raum erstellt! Warte auf Partner...`;
+
+            onSnapshot(currentRoomRef, async (snapshot) => {
+                const data = snapshot.data();
+                if (data && data.answer && !peerConnection.currentRemoteDescription) {
+                    await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+                }
+                if (data && data.receiverCandidates) {
+                    await peerConnection.addIceCandidate(new RTCIceCandidate(data.receiverCandidates));
+                }
+            });
+        };
+
+        // ==========================================
+        // GAST / RAUM BEITRETEN
+        // ==========================================
+        joinRoomBtn.onclick = async () => {
+            const roomId = roomIdInput.value.trim();
+            if (!roomId) return alert("Bitte Raum-ID eingeben!");
+
+            statusDiv.innerText = "Status: Verbinde mit Raum...";
+            currentRoomRef = doc(db, "rooms", roomId);
+            const roomSnapshot = await getDoc(currentRoomRef);
+
+            if (!roomSnapshot.exists()) return alert("Raum nicht gefunden!");
+
+            const roomData = roomSnapshot.data();
+            peerConnection = new RTCPeerConnection(configuration);
+
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate) {
+                    updateDoc(currentRoomRef, { receiverCandidates: event.candidate.toJSON() });
+                }
+            };
+
+            peerConnection.ondatachannel = (event) => {
+                dataChannel = event.channel;
+                setupDataChannelListeners();
+            };
+
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(roomData.offer));
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+
+            await updateDoc(currentRoomRef, { answer: { type: answer.type, sdp: answer.sdp } });
+
+            enableTransferUI(roomId);
+
+            onSnapshot(currentRoomRef, async (snapshot) => {
+                const data = snapshot.data();
+                if (data && data.senderCandidates) {
+                    await peerConnection.addIceCandidate(new RTCIceCandidate(data.senderCandidates));
+                }
+            });
+
+            // Nach erfolgreichem Verbindungsaufbau: Lösche den Raum nach 5 Sekunden
+            setTimeout(async () => {
+                try {
+                    await deleteDoc(currentRoomRef);
+                    console.log("Firebase-Raum wurde erfolgreich aufgeräumt!");
+                } catch (e) {
+                    console.log("Fehler beim sofortigen Löschen:", e);
+                }
+            }, 5000);
+        };
+    </script>
+</body>
+</html>
