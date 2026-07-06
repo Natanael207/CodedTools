@@ -3,35 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dauerhafter WebRTC P2P Raum</title>
+    <title>WebRTC P2P Transfer, Chat & Video</title>
     <style>
-        body { font-family: Arial, sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; line-height: 1.6; }
+        body { font-family: Arial, sans-serif; max-width: 700px; margin: 40px auto; padding: 20px; line-height: 1.6; }
         .box { border: 1px solid #ccc; padding: 20px; border-radius: 8px; margin-bottom: 20px; background: #f9f9f9; }
-        button { background: #007bff; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; }
+        button { background: #007bff; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; margin: 2px; }
         button:disabled { background: #ccc; cursor: not-allowed; }
         input[type="text"] { width: 100%; padding: 8px; margin: 10px 0; box-sizing: border-box; }
         #status { font-weight: bold; color: #333; background: #e2e8f0; }
         .hidden { display: none; }
         
         /* QR-Code Design */
-        #qrContainer {
-            margin: 20px 0;
-            padding: 15px;
-            background: #fff;
-            border: 1px dashed #4a5568;
-            border-radius: 6px;
-            text-align: center;
-        }
-        #qrcode {
-            display: inline-block;
-            margin: 10px 0;
-        }
+        #qrContainer { margin: 20px 0; padding: 15px; background: #fff; border: 1px dashed #4a5568; border-radius: 6px; text-align: center; }
+        #qrcode { display: inline-block; margin: 10px 0; }
+
+        /* Chat Design */
+        #chatWindow { height: 150px; border: 1px solid #ddd; background: #fff; overflow-y: auto; padding: 10px; margin-bottom: 10px; border-radius: 4px; }
+        .message { margin-bottom: 8px; padding: 6px 10px; border-radius: 15px; max-width: 80%; word-break: break-all; }
+        .msg-me { background: #007bff; color: white; margin-left: auto; text-align: right; }
+        .msg-partner { background: #e2e8f0; color: #333; margin-right: auto; }
+        .chat-input-area { display: flex; gap: 8px; }
+        .chat-input-area input { flex: 1; margin: 0; }
+
+        /* NEU: Video / FaceTime Design */
+        .video-container { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px; }
+        video { width: 100%; background: #2d3748; border-radius: 6px; transform: scaleX(-1); } /* Spiegelung für eigene Kamera */
+        #remoteVideo { transform: scaleX(1); } /* Partner wird nicht gespiegelt */
+        .video-box { text-align: center; }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
 
-    <h2>Dauerhafter WebRTC P2P Dateitransfer</h2>
+    <h2>WebRTC P2P Transfer, Chat & Video</h2>
     <div id="status" class="box">Status: Bereit. Erstelle einen Raum oder tritt einem bei.</div>
 
     <div id="setupArea" class="box">
@@ -50,13 +54,39 @@
     </div>
 
     <div id="transferArea" class="box hidden">
-        <h3>Dateitransfer</h3>
         <p><strong>Raum-ID:</strong> <span id="currentRoomId" style="color: green;">-</span></p>
+
+        <h3>Media / Anruf</h3>
+        <button id="startVideoBtn">Facetime (Kamera starten)</button>
+        <button id="startScreenBtn">Screensharing (Bildschirm teilen)</button>
+        <button id="stopMediaBtn" disabled style="background: #dc3545;">Media stoppen</button>
+
+        <div class="video-container">
+            <div class="video-box">
+                <p><small>Du (Lokal)</small></p>
+                <video id="localVideo" autoplay playsinline muted></video>
+            </div>
+            <div class="video-box">
+                <p><small>Partner (Remote)</small></p>
+                <video id="remoteVideo" autoplay playsinline></video>
+            </div>
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid #ccc; margin: 20px 0;">
         
+        <h3>Dateitransfer</h3>
         <div style="margin-bottom: 20px;">
-            <label for="fileInput"><strong>Datei senden:</strong></label><br><br>
             <input type="file" id="fileInput" disabled>
             <button id="sendFileBtn" disabled>Datei senden</button>
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid #ccc; margin: 20px 0;">
+
+        <h3>P2P Chat</h3>
+        <div id="chatWindow"></div>
+        <div class="chat-input-area">
+            <input type="text" id="chatInput" placeholder="Nachricht eingeben..." disabled>
+            <button id="sendMsgBtn" disabled>Senden</button>
         </div>
     </div>
 
@@ -76,11 +106,14 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
+        
+        // WICHTIG: Für Video/Audio benötigen wir oft funktionierende ICE-Server (STUN reicht meistens privat aus)
         const configuration = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
         let peerConnection;
         let dataChannel;
         let currentRoomRef;
+        let localStream = null;
 
         const statusDiv = document.getElementById('status');
         const setupArea = document.getElementById('setupArea');
@@ -92,10 +125,19 @@
         const joinRoomBtn = document.getElementById('joinRoomBtn');
         const roomIdInput = document.getElementById('roomIdInput');
 
-        // QR-Code Elemente
+        // UI-Elemente Chat, QR, Video
+        const chatWindow = document.getElementById('chatWindow');
+        const chatInput = document.getElementById('chatInput');
+        const sendMsgBtn = document.getElementById('sendMsgBtn');
         const qrContainer = document.getElementById('qrContainer');
         const qrcodeDiv = document.getElementById('qrcode');
         const generatedRoomIdSpan = document.getElementById('generatedRoomId');
+        
+        const localVideo = document.getElementById('localVideo');
+        const remoteVideo = document.getElementById('remoteVideo');
+        const startVideoBtn = document.getElementById('startVideoBtn');
+        const startScreenBtn = document.getElementById('startScreenBtn');
+        const stopMediaBtn = document.getElementById('stopMediaBtn');
 
         const CHUNK_SIZE = 16384;
         let incomingFileMeta = null;
@@ -108,17 +150,46 @@
             currentRoomIdSpan.innerText = roomId;
         }
 
+        function appendMessage(text, side) {
+            const msgDiv = document.createElement('div');
+            msgDiv.classList.add('message', side === 'me' ? 'msg-me' : 'msg-partner');
+            msgDiv.innerText = text;
+            chatWindow.appendChild(msgDiv);
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        }
+
+        // NEU: Initialisiert die PeerConnection und fügt Video-Event-Listener hinzu
+        function createPeerConnection() {
+            peerConnection = new RTCPeerConnection(configuration);
+
+            // Wenn der Partner uns einen Video/Audio-Stream sendet, zeige ihn an
+            peerConnection.ontrack = (event) => {
+                if (event.streams && event.streams[0]) {
+                    remoteVideo.srcObject = event.streams[0];
+                }
+            };
+
+            // Falls bereits ein lokaler Stream aktiv ist (z.B. vor dem Verbinden gestartet), Spuren hinzufügen
+            if (localStream) {
+                localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+            }
+        }
+
         function setupDataChannelListeners() {
             dataChannel.onopen = () => {
-                statusDiv.innerText = "Status: Verbunden! Du kannst jetzt beliebig viele Dateien nacheinander senden.";
+                statusDiv.innerText = "Status: Verbunden! Alles läuft jetzt direkt P2P.";
                 fileInput.disabled = false;
                 sendFileBtn.disabled = false;
+                chatInput.disabled = false;
+                sendMsgBtn.disabled = false;
             };
 
             dataChannel.onclose = () => {
-                statusDiv.innerText = "Status: Verbindung verloren. Bitte lade die Seite neu.";
+                statusDiv.innerText = "Status: Verbindung verloren.";
                 fileInput.disabled = true;
                 sendFileBtn.disabled = true;
+                chatInput.disabled = true;
+                sendMsgBtn.disabled = true;
             };
 
             dataChannel.onmessage = (event) => {
@@ -129,6 +200,8 @@
                         receivedChunks = [];
                         receivedSize = 0;
                         statusDiv.innerText = `Status: Empfange Datei "${incomingFileMeta.name}"...`;
+                    } else if (message.type === 'chat') {
+                        appendMessage(message.text, 'partner');
                     }
                 } else {
                     receivedChunks.push(event.data);
@@ -136,7 +209,7 @@
                     statusDiv.innerText = `Status: Empfange... (${Math.round((receivedSize / incomingFileMeta.size) * 100)}%)`;
 
                     if (receivedSize >= incomingFileMeta.size) {
-                        statusDiv.innerText = `Status: "${incomingFileMeta.name}" erfolgreich empfangen! Download startet...`;
+                        statusDiv.innerText = `Status: "${incomingFileMeta.name}" empfangen!`;
                         const blob = new Blob(receivedChunks);
                         const url = URL.createObjectURL(blob);
                         const a = document.createElement('a');
@@ -151,37 +224,87 @@
             };
         }
 
+        // NEU: Kamera & Mikrofon (FaceTime) Logik
+        async function startMedia(type) {
+            try {
+                if (localStream) stopMedia();
+
+                if (type === 'video') {
+                    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                } else if (type === 'screen') {
+                    localStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+                }
+
+                localVideo.srcObject = localStream;
+
+                // Falls die Verbindung schon steht, fügen wir die Spuren live hinzu/ersetzen sie
+                if (peerConnection) {
+                    localStream.getTracks().forEach(track => {
+                        peerConnection.addTrack(track, localStream);
+                    });
+                    
+                    // Ein neues Offer erstellen, um den Stream-Wechsel dem Partner mitzuteilen
+                    const offer = await peerConnection.createOffer();
+                    await peerConnection.setLocalDescription(offer);
+                    await updateDoc(currentRoomRef, { offer: { type: offer.type, sdp: offer.sdp } });
+                }
+
+                startVideoBtn.disabled = true;
+                startScreenBtn.disabled = true;
+                stopMediaBtn.disabled = false;
+            } catch (e) {
+                alert("Zugriff verweigert oder abgebrochen: " + e.message);
+            }
+        }
+
+        function stopMedia() {
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+                localVideo.srcObject = null;
+            }
+            startVideoBtn.disabled = false;
+            startScreenBtn.disabled = false;
+            stopMediaBtn.disabled = true;
+        }
+
+        startVideoBtn.onclick = () => startMedia('video');
+        startScreenBtn.onclick = () => startMedia('screen');
+        stopMediaBtn.onclick = stopMedia;
+
+        // Chat senden
+        function sendChatMessage() {
+            const text = chatInput.value.trim();
+            if (!text) return;
+            dataChannel.send(JSON.stringify({ type: 'chat', text: text }));
+            appendMessage(text, 'me');
+            chatInput.value = "";
+        }
+        sendMsgBtn.onclick = sendChatMessage;
+        chatInput.onkeydown = (e) => { if (e.key === 'Enter') sendChatMessage(); };
+
+        // Datei senden
         sendFileBtn.onclick = () => {
             const file = fileInput.files[0];
-            if (!file) return alert("Bitte wähle eine Datei aus!");
-
+            if (!file) return alert("Datei auswählen!");
             sendFileBtn.disabled = true;
             fileInput.disabled = true;
-
             dataChannel.send(JSON.stringify({ type: 'meta', name: file.name, size: file.size }));
-
             const reader = new FileReader();
             let offset = 0;
-
             reader.onload = (e) => {
                 dataChannel.send(e.target.result);
                 offset += e.target.result.byteLength;
                 statusDiv.innerText = `Status: Sende... (${Math.round((offset / file.size) * 100)}%)`;
-
-                if (offset < file.size) {
-                    readNextChunk();
-                } else {
-                    statusDiv.innerText = `Status: "${file.name}" erfolgreich gesendet!`;
+                if (offset < file.size) { readNextChunk(); } 
+                else {
+                    statusDiv.innerText = `Status: "${file.name}" gesendet!`;
                     sendFileBtn.disabled = false;
                     fileInput.disabled = false;
                     fileInput.value = "";
                 }
             };
-
-            const readNextChunk = () => {
-                const slice = file.slice(offset, offset + CHUNK_SIZE);
-                reader.readAsArrayBuffer(slice);
-            };
+            const readNextChunk = () => { const slice = file.slice(offset, offset + CHUNK_SIZE); reader.readAsArrayBuffer(slice); };
             setTimeout(readNextChunk, 100);
         };
 
@@ -189,7 +312,7 @@
         // HOST / RAUM ERSTELLEN
         // ==========================================
         createRoomBtn.onclick = async () => {
-            statusDiv.innerText = "Status: Räume aufräumen & initialisieren...";
+            statusDiv.innerText = "Status: Initialisiere...";
             
             try {
                 const querySnapshot = await getDocs(collection(db, "rooms"));
@@ -200,48 +323,35 @@
                         await deleteDoc(doc(db, "rooms", roomDoc.id));
                     }
                 });
-            } catch (e) {
-                console.log("Hinweis beim automatischen Aufräumen:", e);
-            }
+            } catch (e) {}
 
             const roomId = Math.random().toString(36).substring(2, 9);
             currentRoomRef = doc(db, "rooms", roomId);
 
-            peerConnection = new RTCPeerConnection(configuration);
+            createPeerConnection(); // NEU: Ausgelagerte PC-Erstellung
             dataChannel = peerConnection.createDataChannel("persistentFileChannel");
             setupDataChannelListeners();
 
             peerConnection.onicecandidate = (event) => {
-                if (event.candidate) {
-                    updateDoc(currentRoomRef, { senderCandidates: event.candidate.toJSON() });
-                }
+                if (event.candidate) { updateDoc(currentRoomRef, { senderCandidates: event.candidate.toJSON() }); }
             };
 
             const offer = await peerConnection.createOffer();
             await peerConnection.setLocalDescription(offer);
 
-            await setDoc(currentRoomRef, {
-                offer: { type: offer.type, sdp: offer.sdp },
-                createdAt: Date.now()
-            });
+            await setDoc(currentRoomRef, { offer: { type: offer.type, sdp: offer.sdp }, createdAt: Date.now() });
 
             statusDiv.innerText = `Status: Raum erstellt! Warte auf Partner...`;
-            
-            // QR-Code für diesen spezifischen Link erzeugen
             qrcodeDiv.innerHTML = ""; 
             const joinUrl = `${window.location.origin}${window.location.pathname}?room=${roomId}`;
-            new QRCode(qrcodeDiv, {
-                text: joinUrl,
-                width: 180,
-                height: 180
-            });
+            new QRCode(qrcodeDiv, { text: joinUrl, width: 180, height: 180 });
             generatedRoomIdSpan.innerText = roomId;
             qrContainer.classList.remove('hidden'); 
 
             onSnapshot(currentRoomRef, async (snapshot) => {
                 const data = snapshot.data();
                 if (data && data.answer && !peerConnection.currentRemoteDescription) {
-                    qrContainer.classList.add('hidden'); // QR-Code ausblenden bei Erfolg
+                    qrContainer.classList.add('hidden'); 
                     enableTransferUI(roomId);
                     await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
                 }
@@ -256,7 +366,7 @@
         // ==========================================
         joinRoomBtn.onclick = async () => {
             const roomId = roomIdInput.value.trim();
-            if (!roomId) return alert("Bitte Raum-ID eingeben!");
+            if (!roomId) return alert("Raum-ID eingeben!");
 
             statusDiv.innerText = "Status: Verbinde mit Raum...";
             currentRoomRef = doc(db, "rooms", roomId);
@@ -265,12 +375,11 @@
             if (!roomSnapshot.exists()) return alert("Raum nicht gefunden!");
 
             const roomData = roomSnapshot.data();
-            peerConnection = new RTCPeerConnection(configuration);
+            
+            createPeerConnection(); // NEU: Ausgelagerte PC-Erstellung
 
             peerConnection.onicecandidate = (event) => {
-                if (event.candidate) {
-                    updateDoc(currentRoomRef, { receiverCandidates: event.candidate.toJSON() });
-                }
+                if (event.candidate) { updateDoc(currentRoomRef, { receiverCandidates: event.candidate.toJSON() }); }
             };
 
             peerConnection.ondatachannel = (event) => {
@@ -291,24 +400,26 @@
                 if (data && data.senderCandidates) {
                     await peerConnection.addIceCandidate(new RTCIceCandidate(data.senderCandidates));
                 }
+                // NEU: Falls der Host nachträglich einen Videostream startet/ändert
+                if (data && data.offer && peerConnection.currentRemoteDescription && data.offer.sdp !== peerConnection.currentRemoteDescription.sdp) {
+                    await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+                    const ans = await peerConnection.createAnswer();
+                    await peerConnection.setLocalDescription(ans);
+                    await updateDoc(currentRoomRef, { answer: { type: ans.type, sdp: ans.sdp } });
+                }
             });
 
             setTimeout(async () => {
-                try {
-                    await deleteDoc(currentRoomRef);
-                } catch (e) {
-                    console.log("Fehler beim Löschen:", e);
-                }
+                try { await deleteDoc(currentRoomRef); } catch (e) {}
             }, 5000);
         };
 
-        // Beim Laden prüfen, ob eine Raum-ID in der URL steht (?room=xxxxx)
         window.addEventListener('DOMContentLoaded', () => {
             const urlParams = new URLSearchParams(window.location.search);
             const roomFromUrl = urlParams.get('room');
             if (roomFromUrl) {
                 roomIdInput.value = roomFromUrl;
-                statusDiv.innerText = "Status: Raum-ID aus QR-Code erkannt. Klicke auf 'Raum beitreten'!";
+                statusDiv.innerText = "Status: Raum-ID erkannt. Klicke auf 'Raum beitreten'!";
             }
         });
     </script>
