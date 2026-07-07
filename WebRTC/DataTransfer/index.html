@@ -3,40 +3,47 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebRTC P2P Transfer, Chat & Video</title>
+    <title>PeerShare</title>
     <style>
-        body { font-family: Arial, sans-serif; max-width: 700px; margin: 40px auto; padding: 20px; line-height: 1.6; }
-        .box { border: 1px solid #ccc; padding: 20px; border-radius: 8px; margin-bottom: 20px; background: #f9f9f9; }
-        button { background: #007bff; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; margin: 2px; }
-        button:disabled { background: #ccc; cursor: not-allowed; }
-        input[type="text"] { width: 100%; padding: 8px; margin: 10px 0; box-sizing: border-box; }
-        #status { font-weight: bold; color: #333; background: #e2e8f0; }
+        :root {
+            color-scheme: light;
+            --bg: #f5f7fb;
+            --panel: #ffffff;
+            --panel-2: #f8fbff;
+            --border: #dce5f0;
+            --text: #1f2937;
+            --muted: #64748b;
+            --accent: #2563eb;
+            --accent-soft: #dbeafe;
+        }
+        body { font-family: Arial, sans-serif; max-width: 760px; margin: 0 auto; padding: 24px; line-height: 1.6; background: var(--bg); color: var(--text); min-height: 100vh; box-sizing: border-box; }
+        .box { border: 1px solid var(--border); padding: 20px; border-radius: 14px; margin-bottom: 20px; background: var(--panel); box-shadow: 0 6px 18px rgba(15, 23, 42, 0.05); }
+        button { background: var(--accent); color: white; border: none; padding: 10px 14px; border-radius: 8px; cursor: pointer; margin: 2px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+        button:disabled { background: #cbd5e1; cursor: not-allowed; }
+        input[type="text"] { width: 100%; padding: 10px; margin: 10px 0; box-sizing: border-box; border: 1px solid var(--border); border-radius: 8px; background: var(--panel-2); }
+        #status { font-size: 0.9rem; color: var(--muted); }
         .hidden { display: none; }
         
-        /* QR-Code Design */
-        #qrContainer { margin: 20px 0; padding: 15px; background: #fff; border: 1px dashed #4a5568; border-radius: 6px; text-align: center; }
+        #qrContainer { margin: 20px 0; padding: 15px; background: var(--panel-2); border: 1px dashed var(--border); border-radius: 10px; text-align: center; }
         #qrcode { display: inline-block; margin: 10px 0; }
 
-        /* Chat Design */
-        #chatWindow { height: 150px; border: 1px solid #ddd; background: #fff; overflow-y: auto; padding: 10px; margin-bottom: 10px; border-radius: 4px; }
-        .message { margin-bottom: 8px; padding: 6px 10px; border-radius: 15px; max-width: 80%; word-break: break-all; }
-        .msg-me { background: #007bff; color: white; margin-left: auto; text-align: right; }
-        .msg-partner { background: #e2e8f0; color: #333; margin-right: auto; }
-        .chat-input-area { display: flex; gap: 8px; }
+        #chatWindow { height: min(60vh, 560px); min-height: 320px; border: 1px solid var(--border); background: var(--panel-2); overflow-y: auto; padding: 12px; margin-bottom: 10px; border-radius: 10px; }
+        .message { margin-bottom: 8px; padding: 8px 12px; border-radius: 14px; max-width: 82%; word-break: break-all; }
+        .msg-me { background: var(--accent); color: white; margin-left: auto; text-align: right; }
+        .msg-partner { background: #e2e8f0; color: var(--text); margin-right: auto; }
+        .chat-input-area { display: flex; gap: 8px; margin-top: 6px; }
         .chat-input-area input { flex: 1; margin: 0; }
+        .file-message { display: flex; flex-direction: column; gap: 4px; }
+        .file-message a { color: inherit; text-decoration: underline; font-weight: bold; }
+        .file-status { font-size: 0.8rem; opacity: 0.8; }
+        #chatWindow.drag-over { outline: 2px dashed var(--accent); background: #eef6ff; }
 
-        /* NEU: Video / FaceTime Design */
-        .video-container { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px; }
-        video { width: 100%; background: #2d3748; border-radius: 6px; transform: scaleX(-1); } /* Spiegelung für eigene Kamera */
-        #remoteVideo { transform: scaleX(1); } /* Partner wird nicht gespiegelt */
-        .video-box { text-align: center; }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
 
-    <h2>WebRTC P2P Transfer, Chat & Video</h2>
-    <div id="status" class="box">Status: Bereit. Erstelle einen Raum oder tritt einem bei.</div>
+    <h2 style="margin-bottom: 12px;">P2P Chat & Dateien</h2>
 
     <div id="setupArea" class="box">
         <h3>Raum-Optionen</h3>
@@ -54,40 +61,17 @@
     </div>
 
     <div id="transferArea" class="box hidden">
-        <p><strong>Raum-ID:</strong> <span id="currentRoomId" style="color: green;">-</span></p>
-
-        <h3>Media / Anruf</h3>
-        <button id="startVideoBtn">Facetime (Kamera starten)</button>
-        <button id="startScreenBtn">Screensharing (Bildschirm teilen)</button>
-        <button id="stopMediaBtn" disabled style="background: #dc3545;">Media stoppen</button>
-
-        <div class="video-container">
-            <div class="video-box">
-                <p><small>Du (Lokal)</small></p>
-                <video id="localVideo" autoplay playsinline muted></video>
-            </div>
-            <div class="video-box">
-                <p><small>Partner (Remote)</small></p>
-                <video id="remoteVideo" autoplay playsinline></video>
-            </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 10px;">
+            <div id="status" style="font-size: 0.95rem; color: var(--muted);">Status: Bereit.</div>
+            <div style="font-size: 0.9rem; color: green;"><strong>Raum-ID:</strong> <span id="currentRoomId">-</span></div>
         </div>
-
-        <hr style="border: 0; border-top: 1px solid #ccc; margin: 20px 0;">
-        
-        <h3>Dateitransfer</h3>
-        <div style="margin-bottom: 20px;">
-            <input type="file" id="fileInput" disabled>
-            <button id="sendFileBtn" disabled>Datei senden</button>
-        </div>
-
-        <hr style="border: 0; border-top: 1px solid #ccc; margin: 20px 0;">
-
-        <h3>P2P Chat</h3>
         <div id="chatWindow"></div>
         <div class="chat-input-area">
             <input type="text" id="chatInput" placeholder="Nachricht eingeben..." disabled>
-            <button id="sendMsgBtn" disabled>Senden</button>
+            <button id="pickFileBtn" type="button" title="Datei auswählen" style="font-size: 22px">+</button>
+            <button id="sendMsgBtn" disabled title="Nachricht senden">Senden ➤</button>
         </div>
+        <input type="file" id="fileInput" class="hidden">
     </div>
 
     <script type="module">
@@ -113,14 +97,14 @@
         let peerConnection;
         let dataChannel;
         let currentRoomRef;
-        let localStream = null;
+        let signalUnsubscribe = null;
+        let pendingSignals = [];
+        let isNegotiating = false;
 
         const statusDiv = document.getElementById('status');
         const setupArea = document.getElementById('setupArea');
         const transferArea = document.getElementById('transferArea');
         const currentRoomIdSpan = document.getElementById('currentRoomId');
-        const fileInput = document.getElementById('fileInput');
-        const sendFileBtn = document.getElementById('sendFileBtn');
         const createRoomBtn = document.getElementById('createRoomBtn');
         const joinRoomBtn = document.getElementById('joinRoomBtn');
         const roomIdInput = document.getElementById('roomIdInput');
@@ -129,20 +113,18 @@
         const chatWindow = document.getElementById('chatWindow');
         const chatInput = document.getElementById('chatInput');
         const sendMsgBtn = document.getElementById('sendMsgBtn');
+        const pickFileBtn = document.getElementById('pickFileBtn');
+        const fileInput = document.getElementById('fileInput');
         const qrContainer = document.getElementById('qrContainer');
         const qrcodeDiv = document.getElementById('qrcode');
         const generatedRoomIdSpan = document.getElementById('generatedRoomId');
         
-        const localVideo = document.getElementById('localVideo');
-        const remoteVideo = document.getElementById('remoteVideo');
-        const startVideoBtn = document.getElementById('startVideoBtn');
-        const startScreenBtn = document.getElementById('startScreenBtn');
-        const stopMediaBtn = document.getElementById('stopMediaBtn');
-
         const CHUNK_SIZE = 16384;
         let incomingFileMeta = null;
         let receivedChunks = [];
         let receivedSize = 0;
+        let currentIncomingMessageId = null;
+        const fileMessageElements = new Map();
 
         function enableTransferUI(roomId) {
             setupArea.classList.add('hidden');
@@ -158,36 +140,162 @@
             chatWindow.scrollTop = chatWindow.scrollHeight;
         }
 
+        function buildFileMessage(name, side, options = {}) {
+            const msgDiv = document.createElement('div');
+            msgDiv.classList.add('message', side === 'me' ? 'msg-me' : 'msg-partner', 'file-message');
+            const nameSpan = document.createElement('div');
+            nameSpan.innerText = name;
+            msgDiv.appendChild(nameSpan);
+            const statusText = options.state ? `${options.state}${options.progress !== undefined ? ` · ${options.progress}%` : ''}` : '';
+            if (options.url) {
+                const link = document.createElement('a');
+                link.href = options.url;
+                link.download = name;
+                link.innerText = 'Download';
+                msgDiv.appendChild(link);
+            }
+            if (statusText) {
+                const stateSpan = document.createElement('small');
+                stateSpan.className = 'file-status';
+                stateSpan.innerText = statusText;
+                msgDiv.appendChild(stateSpan);
+            }
+            return msgDiv;
+        }
+
+        function appendFileMessage(name, side, options = {}) {
+            const msgDiv = buildFileMessage(name, side, options);
+            if (options.id) {
+                fileMessageElements.set(options.id, { element: msgDiv, side });
+            }
+            chatWindow.appendChild(msgDiv);
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+            return msgDiv;
+        }
+
+        function updateFileMessage(id, side, name, options = {}) {
+            const entry = fileMessageElements.get(id);
+            if (!entry) {
+                return appendFileMessage(name, side, { ...options, id });
+            }
+            const msgDiv = entry.element;
+            msgDiv.className = `message ${side === 'me' ? 'msg-me' : 'msg-partner'} file-message`;
+            msgDiv.innerHTML = '';
+            const nameSpan = document.createElement('div');
+            nameSpan.innerText = name;
+            msgDiv.appendChild(nameSpan);
+            const statusText = options.state ? `${options.state}${options.progress !== undefined ? ` · ${options.progress}%` : ''}` : '';
+            if (options.url) {
+                const link = document.createElement('a');
+                link.href = options.url;
+                link.download = name;
+                link.innerText = 'Download';
+                msgDiv.appendChild(link);
+            }
+            if (statusText) {
+                const stateSpan = document.createElement('small');
+                stateSpan.className = 'file-status';
+                stateSpan.innerText = statusText;
+                msgDiv.appendChild(stateSpan);
+            }
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+            return msgDiv;
+        }
+
+        function stopSignalSubscription() {
+            if (signalUnsubscribe) {
+                signalUnsubscribe();
+                signalUnsubscribe = null;
+            }
+        }
+
         // NEU: Initialisiert die PeerConnection und fügt Video-Event-Listener hinzu
         function createPeerConnection() {
+            stopSignalSubscription();
             peerConnection = new RTCPeerConnection(configuration);
 
-            // Wenn der Partner uns einen Video/Audio-Stream sendet, zeige ihn an
-            peerConnection.ontrack = (event) => {
-                if (event.streams && event.streams[0]) {
-                    remoteVideo.srcObject = event.streams[0];
+            peerConnection.onconnectionstatechange = () => {
+                if (['connected', 'completed'].includes(peerConnection.connectionState)) {
+                    stopSignalSubscription();
                 }
             };
 
-            // Falls bereits ein lokaler Stream aktiv ist (z.B. vor dem Verbinden gestartet), Spuren hinzufügen
-            if (localStream) {
-                localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+            peerConnection.oniceconnectionstatechange = () => {
+                if (['connected', 'completed'].includes(peerConnection.iceConnectionState)) {
+                    stopSignalSubscription();
+                }
+            };
+
+            peerConnection.onnegotiationneeded = async () => {
+                if (!dataChannel || dataChannel.readyState !== 'open') return;
+                if (peerConnection.signalingState !== 'stable' || isNegotiating) return;
+                await renegotiateMedia();
+            };
+
+        }
+
+        function sendSignal(message) {
+            const payload = JSON.stringify(message);
+            if (dataChannel && dataChannel.readyState === 'open') {
+                dataChannel.send(payload);
+                return true;
+            }
+            pendingSignals.push(payload);
+            return false;
+        }
+
+        function flushPendingSignals() {
+            if (!dataChannel || dataChannel.readyState !== 'open') return;
+            while (pendingSignals.length > 0) {
+                dataChannel.send(pendingSignals.shift());
+            }
+        }
+
+        async function handleSignalMessage(message) {
+            if (!peerConnection) return;
+
+            if (message.action === 'offer') {
+                if (isNegotiating) return;
+                isNegotiating = true;
+                try {
+                    await peerConnection.setRemoteDescription(new RTCSessionDescription({ type: message.type, sdp: message.sdp }));
+                    const answer = await peerConnection.createAnswer();
+                    await peerConnection.setLocalDescription(answer);
+                    sendSignal({ type: 'signal', action: 'answer', type: answer.type, sdp: answer.sdp });
+                } catch (e) {
+                    console.warn('Offer konnte nicht verarbeitet werden:', e);
+                } finally {
+                    isNegotiating = false;
+                }
+            } else if (message.action === 'answer') {
+                if (isNegotiating) return;
+                isNegotiating = true;
+                try {
+                    await peerConnection.setRemoteDescription(new RTCSessionDescription({ type: message.type, sdp: message.sdp }));
+                } catch (e) {
+                    console.warn('Answer konnte nicht verarbeitet werden:', e);
+                } finally {
+                    isNegotiating = false;
+                }
+            } else if (message.action === 'candidate') {
+                try {
+                    await peerConnection.addIceCandidate(new RTCIceCandidate(message.candidate));
+                } catch (e) {
+                    console.warn('ICE-Kandidat über Datenkanal konnte nicht hinzugefügt werden:', e);
+                }
             }
         }
 
         function setupDataChannelListeners() {
             dataChannel.onopen = () => {
                 statusDiv.innerText = "Status: Verbunden! Alles läuft jetzt direkt P2P.";
-                fileInput.disabled = false;
-                sendFileBtn.disabled = false;
                 chatInput.disabled = false;
                 sendMsgBtn.disabled = false;
+                flushPendingSignals();
             };
 
             dataChannel.onclose = () => {
                 statusDiv.innerText = "Status: Verbindung verloren.";
-                fileInput.disabled = true;
-                sendFileBtn.disabled = true;
                 chatInput.disabled = true;
                 sendMsgBtn.disabled = true;
             };
@@ -195,10 +303,14 @@
             dataChannel.onmessage = (event) => {
                 if (typeof event.data === 'string') {
                     const message = JSON.parse(event.data);
-                    if (message.type === 'meta') {
+                    if (message.type === 'signal') {
+                        handleSignalMessage(message);
+                    } else if (message.type === 'meta') {
                         incomingFileMeta = message;
                         receivedChunks = [];
                         receivedSize = 0;
+                        currentIncomingMessageId = message.id;
+                        appendFileMessage(incomingFileMeta.name, 'partner', { id: currentIncomingMessageId, state: 'wird empfangen…', progress: 0 });
                         statusDiv.innerText = `Status: Empfange Datei "${incomingFileMeta.name}"...`;
                     } else if (message.type === 'chat') {
                         appendMessage(message.text, 'partner');
@@ -206,71 +318,23 @@
                 } else {
                     receivedChunks.push(event.data);
                     receivedSize += event.data.byteLength;
-                    statusDiv.innerText = `Status: Empfange... (${Math.round((receivedSize / incomingFileMeta.size) * 100)}%)`;
+                    const percent = Math.round((receivedSize / incomingFileMeta.size) * 100);
+                    statusDiv.innerText = `Status: Empfange... (${percent}%)`;
+                    updateFileMessage(currentIncomingMessageId, 'partner', incomingFileMeta.name, { state: 'wird empfangen…', progress: percent });
 
                     if (receivedSize >= incomingFileMeta.size) {
                         statusDiv.innerText = `Status: "${incomingFileMeta.name}" empfangen!`;
                         const blob = new Blob(receivedChunks);
                         const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = incomingFileMeta.name;
-                        a.click();
+                        updateFileMessage(currentIncomingMessageId, 'partner', incomingFileMeta.name, { url, state: 'empfangen ✓' });
                         incomingFileMeta = null;
                         receivedChunks = [];
                         receivedSize = 0;
+                        currentIncomingMessageId = null;
                     }
                 }
             };
         }
-
-        // NEU: Kamera & Mikrofon (FaceTime) Logik
-        async function startMedia(type) {
-            try {
-                if (localStream) stopMedia();
-
-                if (type === 'video') {
-                    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                } else if (type === 'screen') {
-                    localStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-                }
-
-                localVideo.srcObject = localStream;
-
-                // Falls die Verbindung schon steht, fügen wir die Spuren live hinzu/ersetzen sie
-                if (peerConnection) {
-                    localStream.getTracks().forEach(track => {
-                        peerConnection.addTrack(track, localStream);
-                    });
-                    
-                    // Ein neues Offer erstellen, um den Stream-Wechsel dem Partner mitzuteilen
-                    const offer = await peerConnection.createOffer();
-                    await peerConnection.setLocalDescription(offer);
-                    await updateDoc(currentRoomRef, { offer: { type: offer.type, sdp: offer.sdp } });
-                }
-
-                startVideoBtn.disabled = true;
-                startScreenBtn.disabled = true;
-                stopMediaBtn.disabled = false;
-            } catch (e) {
-                alert("Zugriff verweigert oder abgebrochen: " + e.message);
-            }
-        }
-
-        function stopMedia() {
-            if (localStream) {
-                localStream.getTracks().forEach(track => track.stop());
-                localStream = null;
-                localVideo.srcObject = null;
-            }
-            startVideoBtn.disabled = false;
-            startScreenBtn.disabled = false;
-            stopMediaBtn.disabled = true;
-        }
-
-        startVideoBtn.onclick = () => startMedia('video');
-        startScreenBtn.onclick = () => startMedia('screen');
-        stopMediaBtn.onclick = stopMedia;
 
         // Chat senden
         function sendChatMessage() {
@@ -283,30 +347,55 @@
         sendMsgBtn.onclick = sendChatMessage;
         chatInput.onkeydown = (e) => { if (e.key === 'Enter') sendChatMessage(); };
 
-        // Datei senden
-        sendFileBtn.onclick = () => {
-            const file = fileInput.files[0];
-            if (!file) return alert("Datei auswählen!");
-            sendFileBtn.disabled = true;
-            fileInput.disabled = true;
-            dataChannel.send(JSON.stringify({ type: 'meta', name: file.name, size: file.size }));
+        async function sendFile(file) {
+            if (!dataChannel) return alert("Noch keine Verbindung!");
+            const transferId = `out-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+            appendFileMessage(file.name, 'me', { id: transferId, state: 'wird gesendet…', progress: 0 });
+            dataChannel.send(JSON.stringify({ type: 'meta', id: transferId, name: file.name, size: file.size }));
             const reader = new FileReader();
             let offset = 0;
             reader.onload = (e) => {
                 dataChannel.send(e.target.result);
                 offset += e.target.result.byteLength;
-                statusDiv.innerText = `Status: Sende... (${Math.round((offset / file.size) * 100)}%)`;
+                const percent = Math.round((offset / file.size) * 100);
+                statusDiv.innerText = `Status: Sende... (${percent}%)`;
+                updateFileMessage(transferId, 'me', file.name, { state: 'wird gesendet…', progress: percent });
                 if (offset < file.size) { readNextChunk(); } 
                 else {
                     statusDiv.innerText = `Status: "${file.name}" gesendet!`;
-                    sendFileBtn.disabled = false;
-                    fileInput.disabled = false;
-                    fileInput.value = "";
+                    updateFileMessage(transferId, 'me', file.name, { state: 'gesendet ✓' });
                 }
             };
             const readNextChunk = () => { const slice = file.slice(offset, offset + CHUNK_SIZE); reader.readAsArrayBuffer(slice); };
             setTimeout(readNextChunk, 100);
+        }
+
+        pickFileBtn.onclick = () => fileInput.click();
+        fileInput.onchange = () => {
+            const file = fileInput.files?.[0];
+            if (file) {
+                sendFile(file);
+                fileInput.value = '';
+            }
         };
+
+        chatWindow.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            chatWindow.classList.add('drag-over');
+        });
+
+        chatWindow.addEventListener('dragleave', () => {
+            chatWindow.classList.remove('drag-over');
+        });
+
+        chatWindow.addEventListener('drop', (e) => {
+            e.preventDefault();
+            chatWindow.classList.remove('drag-over');
+            const files = Array.from(e.dataTransfer?.files || []);
+            if (files.length) {
+                files.forEach(file => sendFile(file));
+            }
+        });
 
         // ==========================================
         // HOST / RAUM ERSTELLEN
@@ -333,7 +422,13 @@
             setupDataChannelListeners();
 
             peerConnection.onicecandidate = (event) => {
-                if (event.candidate) { updateDoc(currentRoomRef, { senderCandidates: event.candidate.toJSON() }); }
+                if (event.candidate) {
+                    if (dataChannel && dataChannel.readyState === 'open') {
+                        dataChannel.send(JSON.stringify({ type: 'signal', action: 'candidate', candidate: event.candidate.toJSON() }));
+                    } else if (currentRoomRef) {
+                        updateDoc(currentRoomRef, { senderCandidates: event.candidate.toJSON() });
+                    }
+                }
             };
 
             const offer = await peerConnection.createOffer();
@@ -348,15 +443,22 @@
             generatedRoomIdSpan.innerText = roomId;
             qrContainer.classList.remove('hidden'); 
 
-            onSnapshot(currentRoomRef, async (snapshot) => {
+            signalUnsubscribe = onSnapshot(currentRoomRef, async (snapshot) => {
                 const data = snapshot.data();
-                if (data && data.answer && !peerConnection.currentRemoteDescription) {
-                    qrContainer.classList.add('hidden'); 
+                if (!data) return;
+
+                if (data.answer && !peerConnection.currentRemoteDescription) {
+                    qrContainer.classList.add('hidden');
                     enableTransferUI(roomId);
                     await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
                 }
-                if (data && data.receiverCandidates) {
-                    await peerConnection.addIceCandidate(new RTCIceCandidate(data.receiverCandidates));
+
+                if (data.receiverCandidates) {
+                    try {
+                        await peerConnection.addIceCandidate(new RTCIceCandidate(data.receiverCandidates));
+                    } catch (e) {
+                        console.warn('ICE-Kandidat konnte nicht hinzugefügt werden:', e);
+                    }
                 }
             });
         };
@@ -379,7 +481,13 @@
             createPeerConnection(); // NEU: Ausgelagerte PC-Erstellung
 
             peerConnection.onicecandidate = (event) => {
-                if (event.candidate) { updateDoc(currentRoomRef, { receiverCandidates: event.candidate.toJSON() }); }
+                if (event.candidate) {
+                    if (dataChannel && dataChannel.readyState === 'open') {
+                        dataChannel.send(JSON.stringify({ type: 'signal', action: 'candidate', candidate: event.candidate.toJSON() }));
+                    } else if (currentRoomRef) {
+                        updateDoc(currentRoomRef, { receiverCandidates: event.candidate.toJSON() });
+                    }
+                }
             };
 
             peerConnection.ondatachannel = (event) => {
@@ -395,23 +503,18 @@
 
             enableTransferUI(roomId);
 
-            onSnapshot(currentRoomRef, async (snapshot) => {
+            signalUnsubscribe = onSnapshot(currentRoomRef, async (snapshot) => {
                 const data = snapshot.data();
-                if (data && data.senderCandidates) {
-                    await peerConnection.addIceCandidate(new RTCIceCandidate(data.senderCandidates));
-                }
-                // NEU: Falls der Host nachträglich einen Videostream startet/ändert
-                if (data && data.offer && peerConnection.currentRemoteDescription && data.offer.sdp !== peerConnection.currentRemoteDescription.sdp) {
-                    await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
-                    const ans = await peerConnection.createAnswer();
-                    await peerConnection.setLocalDescription(ans);
-                    await updateDoc(currentRoomRef, { answer: { type: ans.type, sdp: ans.sdp } });
+                if (!data) return;
+
+                if (data.senderCandidates) {
+                    try {
+                        await peerConnection.addIceCandidate(new RTCIceCandidate(data.senderCandidates));
+                    } catch (e) {
+                        console.warn('ICE-Kandidat konnte nicht hinzugefügt werden:', e);
+                    }
                 }
             });
-
-            setTimeout(async () => {
-                try { await deleteDoc(currentRoomRef); } catch (e) {}
-            }, 5000);
         };
 
         window.addEventListener('DOMContentLoaded', () => {
