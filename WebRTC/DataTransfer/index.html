@@ -25,11 +25,6 @@
         .chat-input-area { display: flex; gap: 8px; }
         .chat-input-area input { flex: 1; margin: 0; }
 
-        /* NEU: Video / FaceTime Design */
-        .video-container { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px; }
-        video { width: 100%; background: #2d3748; border-radius: 6px; transform: scaleX(-1); } /* Spiegelung für eigene Kamera */
-        #remoteVideo { transform: scaleX(1); } /* Partner wird nicht gespiegelt */
-        .video-box { text-align: center; }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
@@ -56,24 +51,6 @@
     <div id="transferArea" class="box hidden">
         <p><strong>Raum-ID:</strong> <span id="currentRoomId" style="color: green;">-</span></p>
 
-        <h3>Media / Anruf</h3>
-        <button id="startVideoBtn">Facetime (Kamera starten)</button>
-        <button id="startScreenBtn">Screensharing (Bildschirm teilen)</button>
-        <button id="stopMediaBtn" disabled style="background: #dc3545;">Media stoppen</button>
-
-        <div class="video-container">
-            <div class="video-box">
-                <p><small>Du (Lokal)</small></p>
-                <video id="localVideo" autoplay playsinline muted></video>
-            </div>
-            <div class="video-box">
-                <p><small>Partner (Remote)</small></p>
-                <video id="remoteVideo" autoplay playsinline></video>
-            </div>
-        </div>
-
-        <hr style="border: 0; border-top: 1px solid #ccc; margin: 20px 0;">
-        
         <h3>Dateitransfer</h3>
         <div style="margin-bottom: 20px;">
             <input type="file" id="fileInput" disabled>
@@ -113,8 +90,9 @@
         let peerConnection;
         let dataChannel;
         let currentRoomRef;
-        let localStream = null;
         let signalUnsubscribe = null;
+        let pendingSignals = [];
+        let isNegotiating = false;
 
         const statusDiv = document.getElementById('status');
         const setupArea = document.getElementById('setupArea');
@@ -134,12 +112,6 @@
         const qrcodeDiv = document.getElementById('qrcode');
         const generatedRoomIdSpan = document.getElementById('generatedRoomId');
         
-        const localVideo = document.getElementById('localVideo');
-        const remoteVideo = document.getElementById('remoteVideo');
-        const startVideoBtn = document.getElementById('startVideoBtn');
-        const startScreenBtn = document.getElementById('startScreenBtn');
-        const stopMediaBtn = document.getElementById('stopMediaBtn');
-
         const CHUNK_SIZE = 16384;
         let incomingFileMeta = null;
         let receivedChunks = [];
@@ -171,12 +143,6 @@
             stopSignalSubscription();
             peerConnection = new RTCPeerConnection(configuration);
 
-            peerConnection.ontrack = (event) => {
-                if (event.streams && event.streams[0]) {
-                    remoteVideo.srcObject = event.streams[0];
-                }
-            };
-
             peerConnection.onconnectionstatechange = () => {
                 if (['connected', 'completed'].includes(peerConnection.connectionState)) {
                     stopSignalSubscription();
@@ -189,8 +155,28 @@
                 }
             };
 
-            if (localStream) {
-                localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+            peerConnection.onnegotiationneeded = async () => {
+                if (!dataChannel || dataChannel.readyState !== 'open') return;
+                if (peerConnection.signalingState !== 'stable' || isNegotiating) return;
+                await renegotiateMedia();
+            };
+
+        }
+
+        function sendSignal(message) {
+            const payload = JSON.stringify(message);
+            if (dataChannel && dataChannel.readyState === 'open') {
+                dataChannel.send(payload);
+                return true;
+            }
+            pendingSignals.push(payload);
+            return false;
+        }
+
+        function flushPendingSignals() {
+            if (!dataChannel || dataChannel.readyState !== 'open') return;
+            while (pendingSignals.length > 0) {
+                dataChannel.send(pendingSignals.shift());
             }
         }
 
@@ -198,12 +184,28 @@
             if (!peerConnection) return;
 
             if (message.action === 'offer') {
-                await peerConnection.setRemoteDescription(new RTCSessionDescription({ type: message.type, sdp: message.sdp }));
-                const answer = await peerConnection.createAnswer();
-                await peerConnection.setLocalDescription(answer);
-                dataChannel.send(JSON.stringify({ type: 'signal', action: 'answer', type: answer.type, sdp: answer.sdp }));
+                if (isNegotiating) return;
+                isNegotiating = true;
+                try {
+                    await peerConnection.setRemoteDescription(new RTCSessionDescription({ type: message.type, sdp: message.sdp }));
+                    const answer = await peerConnection.createAnswer();
+                    await peerConnection.setLocalDescription(answer);
+                    sendSignal({ type: 'signal', action: 'answer', type: answer.type, sdp: answer.sdp });
+                } catch (e) {
+                    console.warn('Offer konnte nicht verarbeitet werden:', e);
+                } finally {
+                    isNegotiating = false;
+                }
             } else if (message.action === 'answer') {
-                await peerConnection.setRemoteDescription(new RTCSessionDescription({ type: message.type, sdp: message.sdp }));
+                if (isNegotiating) return;
+                isNegotiating = true;
+                try {
+                    await peerConnection.setRemoteDescription(new RTCSessionDescription({ type: message.type, sdp: message.sdp }));
+                } catch (e) {
+                    console.warn('Answer konnte nicht verarbeitet werden:', e);
+                } finally {
+                    isNegotiating = false;
+                }
             } else if (message.action === 'candidate') {
                 try {
                     await peerConnection.addIceCandidate(new RTCIceCandidate(message.candidate));
@@ -220,6 +222,7 @@
                 sendFileBtn.disabled = false;
                 chatInput.disabled = false;
                 sendMsgBtn.disabled = false;
+                flushPendingSignals();
             };
 
             dataChannel.onclose = () => {
@@ -263,59 +266,6 @@
                 }
             };
         }
-
-        async function renegotiateMedia() {
-            if (!peerConnection || !dataChannel || dataChannel.readyState !== 'open') return;
-            if (peerConnection.signalingState !== 'stable') return;
-
-            const offer = await peerConnection.createOffer();
-            await peerConnection.setLocalDescription(offer);
-            dataChannel.send(JSON.stringify({ type: 'signal', action: 'offer', type: offer.type, sdp: offer.sdp }));
-        }
-
-        // NEU: Kamera & Mikrofon (FaceTime) Logik
-        async function startMedia(type) {
-            try {
-                if (localStream) stopMedia();
-
-                if (type === 'video') {
-                    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                } else if (type === 'screen') {
-                    localStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-                }
-
-                localVideo.srcObject = localStream;
-
-                if (peerConnection) {
-                    localStream.getTracks().forEach(track => {
-                        peerConnection.addTrack(track, localStream);
-                    });
-
-                    await renegotiateMedia();
-                }
-
-                startVideoBtn.disabled = true;
-                startScreenBtn.disabled = true;
-                stopMediaBtn.disabled = false;
-            } catch (e) {
-                alert("Zugriff verweigert oder abgebrochen: " + e.message);
-            }
-        }
-
-        function stopMedia() {
-            if (localStream) {
-                localStream.getTracks().forEach(track => track.stop());
-                localStream = null;
-                localVideo.srcObject = null;
-            }
-            startVideoBtn.disabled = false;
-            startScreenBtn.disabled = false;
-            stopMediaBtn.disabled = true;
-        }
-
-        startVideoBtn.onclick = () => startMedia('video');
-        startScreenBtn.onclick = () => startMedia('screen');
-        stopMediaBtn.onclick = stopMedia;
 
         // Chat senden
         function sendChatMessage() {
