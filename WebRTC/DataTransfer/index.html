@@ -114,6 +114,7 @@
         let dataChannel;
         let currentRoomRef;
         let localStream = null;
+        let signalUnsubscribe = null;
 
         const statusDiv = document.getElementById('status');
         const setupArea = document.getElementById('setupArea');
@@ -158,20 +159,57 @@
             chatWindow.scrollTop = chatWindow.scrollHeight;
         }
 
+        function stopSignalSubscription() {
+            if (signalUnsubscribe) {
+                signalUnsubscribe();
+                signalUnsubscribe = null;
+            }
+        }
+
         // NEU: Initialisiert die PeerConnection und fügt Video-Event-Listener hinzu
         function createPeerConnection() {
+            stopSignalSubscription();
             peerConnection = new RTCPeerConnection(configuration);
 
-            // Wenn der Partner uns einen Video/Audio-Stream sendet, zeige ihn an
             peerConnection.ontrack = (event) => {
                 if (event.streams && event.streams[0]) {
                     remoteVideo.srcObject = event.streams[0];
                 }
             };
 
-            // Falls bereits ein lokaler Stream aktiv ist (z.B. vor dem Verbinden gestartet), Spuren hinzufügen
+            peerConnection.onconnectionstatechange = () => {
+                if (['connected', 'completed'].includes(peerConnection.connectionState)) {
+                    stopSignalSubscription();
+                }
+            };
+
+            peerConnection.oniceconnectionstatechange = () => {
+                if (['connected', 'completed'].includes(peerConnection.iceConnectionState)) {
+                    stopSignalSubscription();
+                }
+            };
+
             if (localStream) {
                 localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+            }
+        }
+
+        async function handleSignalMessage(message) {
+            if (!peerConnection) return;
+
+            if (message.action === 'offer') {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription({ type: message.type, sdp: message.sdp }));
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+                dataChannel.send(JSON.stringify({ type: 'signal', action: 'answer', type: answer.type, sdp: answer.sdp }));
+            } else if (message.action === 'answer') {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription({ type: message.type, sdp: message.sdp }));
+            } else if (message.action === 'candidate') {
+                try {
+                    await peerConnection.addIceCandidate(new RTCIceCandidate(message.candidate));
+                } catch (e) {
+                    console.warn('ICE-Kandidat über Datenkanal konnte nicht hinzugefügt werden:', e);
+                }
             }
         }
 
@@ -195,7 +233,9 @@
             dataChannel.onmessage = (event) => {
                 if (typeof event.data === 'string') {
                     const message = JSON.parse(event.data);
-                    if (message.type === 'meta') {
+                    if (message.type === 'signal') {
+                        handleSignalMessage(message);
+                    } else if (message.type === 'meta') {
                         incomingFileMeta = message;
                         receivedChunks = [];
                         receivedSize = 0;
@@ -224,6 +264,15 @@
             };
         }
 
+        async function renegotiateMedia() {
+            if (!peerConnection || !dataChannel || dataChannel.readyState !== 'open') return;
+            if (peerConnection.signalingState !== 'stable') return;
+
+            const offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
+            dataChannel.send(JSON.stringify({ type: 'signal', action: 'offer', type: offer.type, sdp: offer.sdp }));
+        }
+
         // NEU: Kamera & Mikrofon (FaceTime) Logik
         async function startMedia(type) {
             try {
@@ -237,16 +286,12 @@
 
                 localVideo.srcObject = localStream;
 
-                // Falls die Verbindung schon steht, fügen wir die Spuren live hinzu/ersetzen sie
                 if (peerConnection) {
                     localStream.getTracks().forEach(track => {
                         peerConnection.addTrack(track, localStream);
                     });
-                    
-                    // Ein neues Offer erstellen, um den Stream-Wechsel dem Partner mitzuteilen
-                    const offer = await peerConnection.createOffer();
-                    await peerConnection.setLocalDescription(offer);
-                    await updateDoc(currentRoomRef, { offer: { type: offer.type, sdp: offer.sdp } });
+
+                    await renegotiateMedia();
                 }
 
                 startVideoBtn.disabled = true;
@@ -333,7 +378,13 @@
             setupDataChannelListeners();
 
             peerConnection.onicecandidate = (event) => {
-                if (event.candidate) { updateDoc(currentRoomRef, { senderCandidates: event.candidate.toJSON() }); }
+                if (event.candidate) {
+                    if (dataChannel && dataChannel.readyState === 'open') {
+                        dataChannel.send(JSON.stringify({ type: 'signal', action: 'candidate', candidate: event.candidate.toJSON() }));
+                    } else if (currentRoomRef) {
+                        updateDoc(currentRoomRef, { senderCandidates: event.candidate.toJSON() });
+                    }
+                }
             };
 
             const offer = await peerConnection.createOffer();
@@ -348,15 +399,22 @@
             generatedRoomIdSpan.innerText = roomId;
             qrContainer.classList.remove('hidden'); 
 
-            onSnapshot(currentRoomRef, async (snapshot) => {
+            signalUnsubscribe = onSnapshot(currentRoomRef, async (snapshot) => {
                 const data = snapshot.data();
-                if (data && data.answer && !peerConnection.currentRemoteDescription) {
-                    qrContainer.classList.add('hidden'); 
+                if (!data) return;
+
+                if (data.answer && !peerConnection.currentRemoteDescription) {
+                    qrContainer.classList.add('hidden');
                     enableTransferUI(roomId);
                     await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
                 }
-                if (data && data.receiverCandidates) {
-                    await peerConnection.addIceCandidate(new RTCIceCandidate(data.receiverCandidates));
+
+                if (data.receiverCandidates) {
+                    try {
+                        await peerConnection.addIceCandidate(new RTCIceCandidate(data.receiverCandidates));
+                    } catch (e) {
+                        console.warn('ICE-Kandidat konnte nicht hinzugefügt werden:', e);
+                    }
                 }
             });
         };
@@ -379,7 +437,13 @@
             createPeerConnection(); // NEU: Ausgelagerte PC-Erstellung
 
             peerConnection.onicecandidate = (event) => {
-                if (event.candidate) { updateDoc(currentRoomRef, { receiverCandidates: event.candidate.toJSON() }); }
+                if (event.candidate) {
+                    if (dataChannel && dataChannel.readyState === 'open') {
+                        dataChannel.send(JSON.stringify({ type: 'signal', action: 'candidate', candidate: event.candidate.toJSON() }));
+                    } else if (currentRoomRef) {
+                        updateDoc(currentRoomRef, { receiverCandidates: event.candidate.toJSON() });
+                    }
+                }
             };
 
             peerConnection.ondatachannel = (event) => {
@@ -395,23 +459,18 @@
 
             enableTransferUI(roomId);
 
-            onSnapshot(currentRoomRef, async (snapshot) => {
+            signalUnsubscribe = onSnapshot(currentRoomRef, async (snapshot) => {
                 const data = snapshot.data();
-                if (data && data.senderCandidates) {
-                    await peerConnection.addIceCandidate(new RTCIceCandidate(data.senderCandidates));
-                }
-                // NEU: Falls der Host nachträglich einen Videostream startet/ändert
-                if (data && data.offer && peerConnection.currentRemoteDescription && data.offer.sdp !== peerConnection.currentRemoteDescription.sdp) {
-                    await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
-                    const ans = await peerConnection.createAnswer();
-                    await peerConnection.setLocalDescription(ans);
-                    await updateDoc(currentRoomRef, { answer: { type: ans.type, sdp: ans.sdp } });
+                if (!data) return;
+
+                if (data.senderCandidates) {
+                    try {
+                        await peerConnection.addIceCandidate(new RTCIceCandidate(data.senderCandidates));
+                    } catch (e) {
+                        console.warn('ICE-Kandidat konnte nicht hinzugefügt werden:', e);
+                    }
                 }
             });
-
-            setTimeout(async () => {
-                try { await deleteDoc(currentRoomRef); } catch (e) {}
-            }, 5000);
         };
 
         window.addEventListener('DOMContentLoaded', () => {
