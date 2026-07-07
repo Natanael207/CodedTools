@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebRTC P2P Transfer, Chat & Video</title>
+    <title>WebRTC P2P Transfer, Chat & Dateien</title>
     <style>
         body { font-family: Arial, sans-serif; max-width: 700px; margin: 40px auto; padding: 20px; line-height: 1.6; }
         .box { border: 1px solid #ccc; padding: 20px; border-radius: 8px; margin-bottom: 20px; background: #f9f9f9; }
@@ -18,12 +18,16 @@
         #qrcode { display: inline-block; margin: 10px 0; }
 
         /* Chat Design */
-        #chatWindow { height: 150px; border: 1px solid #ddd; background: #fff; overflow-y: auto; padding: 10px; margin-bottom: 10px; border-radius: 4px; }
-        .message { margin-bottom: 8px; padding: 6px 10px; border-radius: 15px; max-width: 80%; word-break: break-all; }
+        #chatWindow { height: 220px; border: 1px solid #ddd; background: #fff; overflow-y: auto; padding: 10px; margin-bottom: 10px; border-radius: 4px; }
+        .message { margin-bottom: 8px; padding: 8px 12px; border-radius: 14px; max-width: 80%; word-break: break-all; }
         .msg-me { background: #007bff; color: white; margin-left: auto; text-align: right; }
         .msg-partner { background: #e2e8f0; color: #333; margin-right: auto; }
         .chat-input-area { display: flex; gap: 8px; }
         .chat-input-area input { flex: 1; margin: 0; }
+        .file-message { display: flex; flex-direction: column; gap: 4px; }
+        .file-message a { color: inherit; text-decoration: underline; font-weight: bold; }
+        .drop-hint { text-align: center; color: #4a5568; font-size: 0.95rem; padding: 8px 0 12px; }
+        #chatWindow.drag-over { outline: 2px dashed #007bff; background: #eef6ff; }
 
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -51,15 +55,8 @@
     <div id="transferArea" class="box hidden">
         <p><strong>Raum-ID:</strong> <span id="currentRoomId" style="color: green;">-</span></p>
 
-        <h3>Dateitransfer</h3>
-        <div style="margin-bottom: 20px;">
-            <input type="file" id="fileInput" disabled>
-            <button id="sendFileBtn" disabled>Datei senden</button>
-        </div>
-
-        <hr style="border: 0; border-top: 1px solid #ccc; margin: 20px 0;">
-
         <h3>P2P Chat</h3>
+        <div id="dropHint" class="drop-hint">Dateien hierher ziehen, um sie direkt im Chat zu senden</div>
         <div id="chatWindow"></div>
         <div class="chat-input-area">
             <input type="text" id="chatInput" placeholder="Nachricht eingeben..." disabled>
@@ -98,8 +95,6 @@
         const setupArea = document.getElementById('setupArea');
         const transferArea = document.getElementById('transferArea');
         const currentRoomIdSpan = document.getElementById('currentRoomId');
-        const fileInput = document.getElementById('fileInput');
-        const sendFileBtn = document.getElementById('sendFileBtn');
         const createRoomBtn = document.getElementById('createRoomBtn');
         const joinRoomBtn = document.getElementById('joinRoomBtn');
         const roomIdInput = document.getElementById('roomIdInput');
@@ -116,6 +111,8 @@
         let incomingFileMeta = null;
         let receivedChunks = [];
         let receivedSize = 0;
+        let currentIncomingMessageId = null;
+        const fileMessageElements = new Map();
 
         function enableTransferUI(roomId) {
             setupArea.classList.add('hidden');
@@ -129,6 +126,62 @@
             msgDiv.innerText = text;
             chatWindow.appendChild(msgDiv);
             chatWindow.scrollTop = chatWindow.scrollHeight;
+        }
+
+        function buildFileMessage(name, side, options = {}) {
+            const msgDiv = document.createElement('div');
+            msgDiv.classList.add('message', side === 'me' ? 'msg-me' : 'msg-partner', 'file-message');
+            const nameSpan = document.createElement('div');
+            nameSpan.innerText = name;
+            msgDiv.appendChild(nameSpan);
+            if (options.url) {
+                const link = document.createElement('a');
+                link.href = options.url;
+                link.download = name;
+                link.innerText = 'Download';
+                msgDiv.appendChild(link);
+            } else if (options.state) {
+                const stateSpan = document.createElement('small');
+                stateSpan.innerText = options.state;
+                msgDiv.appendChild(stateSpan);
+            }
+            return msgDiv;
+        }
+
+        function appendFileMessage(name, side, options = {}) {
+            const msgDiv = buildFileMessage(name, side, options);
+            if (options.id) {
+                fileMessageElements.set(options.id, { element: msgDiv, side });
+            }
+            chatWindow.appendChild(msgDiv);
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+            return msgDiv;
+        }
+
+        function updateFileMessage(id, side, name, options = {}) {
+            const entry = fileMessageElements.get(id);
+            if (!entry) {
+                return appendFileMessage(name, side, { ...options, id });
+            }
+            const msgDiv = entry.element;
+            msgDiv.className = `message ${side === 'me' ? 'msg-me' : 'msg-partner'} file-message`;
+            msgDiv.innerHTML = '';
+            const nameSpan = document.createElement('div');
+            nameSpan.innerText = name;
+            msgDiv.appendChild(nameSpan);
+            if (options.url) {
+                const link = document.createElement('a');
+                link.href = options.url;
+                link.download = name;
+                link.innerText = 'Download';
+                msgDiv.appendChild(link);
+            } else if (options.state) {
+                const stateSpan = document.createElement('small');
+                stateSpan.innerText = options.state;
+                msgDiv.appendChild(stateSpan);
+            }
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+            return msgDiv;
         }
 
         function stopSignalSubscription() {
@@ -218,8 +271,6 @@
         function setupDataChannelListeners() {
             dataChannel.onopen = () => {
                 statusDiv.innerText = "Status: Verbunden! Alles läuft jetzt direkt P2P.";
-                fileInput.disabled = false;
-                sendFileBtn.disabled = false;
                 chatInput.disabled = false;
                 sendMsgBtn.disabled = false;
                 flushPendingSignals();
@@ -227,8 +278,6 @@
 
             dataChannel.onclose = () => {
                 statusDiv.innerText = "Status: Verbindung verloren.";
-                fileInput.disabled = true;
-                sendFileBtn.disabled = true;
                 chatInput.disabled = true;
                 sendMsgBtn.disabled = true;
             };
@@ -242,6 +291,8 @@
                         incomingFileMeta = message;
                         receivedChunks = [];
                         receivedSize = 0;
+                        currentIncomingMessageId = message.id;
+                        appendFileMessage(incomingFileMeta.name, 'partner', { id: currentIncomingMessageId, state: 'wird empfangen…' });
                         statusDiv.innerText = `Status: Empfange Datei "${incomingFileMeta.name}"...`;
                     } else if (message.type === 'chat') {
                         appendMessage(message.text, 'partner');
@@ -255,13 +306,11 @@
                         statusDiv.innerText = `Status: "${incomingFileMeta.name}" empfangen!`;
                         const blob = new Blob(receivedChunks);
                         const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = incomingFileMeta.name;
-                        a.click();
+                        updateFileMessage(currentIncomingMessageId, 'partner', incomingFileMeta.name, { url, state: 'empfangen ✓' });
                         incomingFileMeta = null;
                         receivedChunks = [];
                         receivedSize = 0;
+                        currentIncomingMessageId = null;
                     }
                 }
             };
@@ -278,13 +327,11 @@
         sendMsgBtn.onclick = sendChatMessage;
         chatInput.onkeydown = (e) => { if (e.key === 'Enter') sendChatMessage(); };
 
-        // Datei senden
-        sendFileBtn.onclick = () => {
-            const file = fileInput.files[0];
-            if (!file) return alert("Datei auswählen!");
-            sendFileBtn.disabled = true;
-            fileInput.disabled = true;
-            dataChannel.send(JSON.stringify({ type: 'meta', name: file.name, size: file.size }));
+        async function sendFile(file) {
+            if (!dataChannel) return alert("Noch keine Verbindung!");
+            const transferId = `out-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+            appendFileMessage(file.name, 'me', { id: transferId, state: 'wird gesendet…' });
+            dataChannel.send(JSON.stringify({ type: 'meta', id: transferId, name: file.name, size: file.size }));
             const reader = new FileReader();
             let offset = 0;
             reader.onload = (e) => {
@@ -294,14 +341,30 @@
                 if (offset < file.size) { readNextChunk(); } 
                 else {
                     statusDiv.innerText = `Status: "${file.name}" gesendet!`;
-                    sendFileBtn.disabled = false;
-                    fileInput.disabled = false;
-                    fileInput.value = "";
+                    updateFileMessage(transferId, 'me', file.name, { state: 'gesendet ✓' });
                 }
             };
             const readNextChunk = () => { const slice = file.slice(offset, offset + CHUNK_SIZE); reader.readAsArrayBuffer(slice); };
             setTimeout(readNextChunk, 100);
-        };
+        }
+
+        chatWindow.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            chatWindow.classList.add('drag-over');
+        });
+
+        chatWindow.addEventListener('dragleave', () => {
+            chatWindow.classList.remove('drag-over');
+        });
+
+        chatWindow.addEventListener('drop', (e) => {
+            e.preventDefault();
+            chatWindow.classList.remove('drag-over');
+            const files = Array.from(e.dataTransfer?.files || []);
+            if (files.length) {
+                files.forEach(file => sendFile(file));
+            }
+        });
 
         // ==========================================
         // HOST / RAUM ERSTELLEN
