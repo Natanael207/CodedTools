@@ -518,7 +518,7 @@
                 const jetzt = Date.now();
                 querySnapshot.forEach(async (roomDoc) => {
                     const data = roomDoc.data();
-                    if (data.createdAt && (jetzt - data.createdAt > 10000)) {
+                    if (data.createdAt && (jetzt - data.createdAt > 120000)) {
                         await deleteDoc(doc(db, "rooms", roomDoc.id));
                     }
                 });
