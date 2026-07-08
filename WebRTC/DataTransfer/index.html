@@ -68,9 +68,11 @@
         <div id="chatWindow"></div>
         <div class="chat-input-area">
             <input type="text" id="chatInput" placeholder="Nachricht eingeben..." disabled>
-            <button id="pickFileBtn" type="button" title="Ordner/Datei auswählen" style="font-size: 22px">+</button>
+            <button id="pickFileBtn" type="button" title="Datei auswählen" style="font-size: 22px">+</button>
+            <button id="pickFolderBtn" type="button" title="Ordner auswählen" style="font-size: 20px">📁</button>
             <button id="sendMsgBtn" disabled title="Nachricht senden">Senden ➤</button>
         </div>
+        <input type="file" id="fileInput" class="hidden" multiple>
         <input type="file" id="folderInput" class="hidden" webkitdirectory directory multiple>
     </div>
 
@@ -111,6 +113,8 @@
         const chatInput = document.getElementById('chatInput');
         const sendMsgBtn = document.getElementById('sendMsgBtn');
         const pickFileBtn = document.getElementById('pickFileBtn');
+        const pickFolderBtn = document.getElementById('pickFolderBtn');
+        const fileInput = document.getElementById('fileInput');
         const folderInput = document.getElementById('folderInput');
         const qrContainer = document.getElementById('qrContainer');
         const qrcodeDiv = document.getElementById('qrcode');
@@ -362,9 +366,13 @@
         sendMsgBtn.onclick = sendChatMessage;
         chatInput.onkeydown = (e) => { if (e.key === 'Enter') sendChatMessage(); };
 
-        async function enqueueFile(file) {
-            const transferId = `out-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-            appendFileMessage(file.name, 'me', { id: transferId, state: 'in Warteschlange' });
+        // Aktualisierte Funktion, die eine optionale vordefinierte ID akzeptiert
+        async function enqueueFile(file, existingId = null) {
+            const transferId = existingId || `out-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+            
+            // Falls die Sprechblase schon existiert (durchs Zippen), aktualisieren wir sie nur, anstatt eine neue anzuhängen
+            updateFileMessage(transferId, 'me', file.name, { state: 'in Warteschlange' });
+            
             transferQueue.push({ id: transferId, file });
             processQueue();
         }
@@ -407,6 +415,17 @@
         }
 
         pickFileBtn.onclick = () => {
+            fileInput.click();
+        };
+
+        fileInput.onchange = () => {
+            const files = Array.from(fileInput.files || []);
+            if (!files.length) return;
+            files.forEach(file => enqueueFile(file));
+            fileInput.value = '';
+        };
+
+        pickFolderBtn.onclick = () => {
             folderInput.click();
         };
 
@@ -414,30 +433,34 @@
             const files = Array.from(folderInput.files || []);
             if (!files.length) return;
 
-            if (files.length === 1 && !files[0].webkitRelativePath.includes('/')) {
-                enqueueFile(files[0]);
-                folderInput.value = '';
-                return;
-            }
-
             const folderName = files[0].webkitRelativePath.split('/')[0] || 'ordner';
+            const zipFileName = `${folderName}.zip`;
+            
+            // Generiere hier sofort die ID und erstelle die Sprechblase
+            const transferId = `out-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+            updateFileMessage(transferId, 'me', zipFileName, { state: 'wird gezippt…' });
             statusDiv.innerText = `Status: Zippe Ordner "${folderName}"...`;
 
-            try {
-                const zip = new JSZip();
-                files.forEach(file => {
-                    zip.file(file.webkitRelativePath, file);
-                });
+            // Nutze setTimeout, damit der UI-Thread die Sprechblase rendern kann, bevor das rechenintensive Zippen startet
+            setTimeout(async () => {
+                try {
+                    const zip = new JSZip();
+                    files.forEach(file => {
+                        zip.file(file.webkitRelativePath, file);
+                    });
 
-                const contentBlob = await zip.generateAsync({ type: "blob" });
-                const zippedFile = new File([contentBlob], `${folderName}.zip`, { type: "application/zip" });
-                
-                enqueueFile(zippedFile);
-            } catch (error) {
-                alert("Fehler beim Zippen des Ordners: " + error.message);
-            } finally {
-                folderInput.value = '';
-            }
+                    const contentBlob = await zip.generateAsync({ type: "blob" });
+                    const zippedFile = new File([contentBlob], zipFileName, { type: "application/zip" });
+                    
+                    // Übergebene ID sorgt dafür, dass die Sprechblase recycelt wird
+                    enqueueFile(zippedFile, transferId);
+                } catch (error) {
+                    alert("Fehler beim Zippen des Ordners: " + error.message);
+                    updateFileMessage(transferId, 'me', zipFileName, { state: 'Fehler beim Zippen ❌' });
+                } finally {
+                    folderInput.value = '';
+                }
+            }, 50);
         };
 
         chatWindow.addEventListener('dragover', (e) => {
@@ -477,7 +500,7 @@
             }
 
             if (containsFolder) {
-                alert("Das Hinzufügen von Ordnern per Drag & Drop wird nicht unterstützt. Bitte benutze das '+'-Symbol, um Ordner hochzuladen!");
+                alert("Das Hinzufügen von Ordnern per Drag & Drop wird nicht unterstützt. Bitte benutze das Ordner-Symbol (📁), um Ordner hochzuladen!");
                 return;
             }
 
@@ -495,7 +518,7 @@
                 const jetzt = Date.now();
                 querySnapshot.forEach(async (roomDoc) => {
                     const data = roomDoc.data();
-                    if (data.createdAt && (jetzt - data.createdAt > 10000)) {
+                    if (data.createdAt && (jetzt - data.createdAt > 120000)) {
                         await deleteDoc(doc(db, "rooms", roomDoc.id));
                     }
                 });
@@ -513,7 +536,6 @@
                     if (dataChannel && dataChannel.readyState === 'open') {
                         dataChannel.send(JSON.stringify({ type: 'signal', action: 'candidate', candidate: event.candidate.toJSON() }));
                     } else if (currentRoomRef) {
-                        // KORREKTUR: Nutzt arrayUnion statt das Feld zu überschreiben
                         updateDoc(currentRoomRef, { senderCandidates: arrayUnion(event.candidate.toJSON()) });
                     }
                 }
@@ -541,7 +563,6 @@
                     await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
                 }
 
-                // KORREKTUR: Iteriert durch das Array eingegangener Kandidaten
                 if (data.receiverCandidates && Array.isArray(data.receiverCandidates)) {
                     for (const candidateData of data.receiverCandidates) {
                         try {
@@ -573,7 +594,6 @@
                     if (dataChannel && dataChannel.readyState === 'open') {
                         dataChannel.send(JSON.stringify({ type: 'signal', action: 'candidate', candidate: event.candidate.toJSON() }));
                     } else if (currentRoomRef) {
-                        // KORREKTUR: Nutzt arrayUnion statt das Feld zu überschreiben
                         updateDoc(currentRoomRef, { receiverCandidates: arrayUnion(event.candidate.toJSON()) });
                     }
                 }
@@ -596,7 +616,6 @@
                 const data = snapshot.data();
                 if (!data) return;
 
-                // KORREKTUR: Iteriert durch das Array eingegangener Kandidaten
                 if (data.senderCandidates && Array.isArray(data.senderCandidates)) {
                     for (const candidateData of data.senderCandidates) {
                         try {
