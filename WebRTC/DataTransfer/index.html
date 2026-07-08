@@ -37,7 +37,6 @@
         .file-message a { color: inherit; text-decoration: underline; font-weight: bold; }
         .file-status { font-size: 0.8rem; opacity: 0.8; }
         #chatWindow.drag-over { outline: 2px dashed var(--accent); background: #eef6ff; }
-
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -339,27 +338,15 @@
 
                     if (receivedSize >= incomingFileMeta.size) {
                         const blob = new Blob(receivedChunks);
-                        (async () => {
-                            statusDiv.innerText = `Status: Prüfe Prüfsumme für "${incomingFileMeta.name}"...`;
-                            const ab = await blob.arrayBuffer();
-                            let ok = true;
-                            if (incomingFileMeta.checksum) {
-                                const receivedHex = await sha256Hex(ab);
-                                ok = receivedHex === incomingFileMeta.checksum;
-                            }
-                            const url = URL.createObjectURL(blob);
-                            if (ok) {
-                                statusDiv.innerText = `Status: "${incomingFileMeta.name}" empfangen!`;
-                                updateFileMessage(currentIncomingMessageId, 'partner', incomingFileMeta.name, { url, state: 'empfangen ✓' });
-                            } else {
-                                statusDiv.innerText = `Status: Prüfsumme stimmt NICHT für "${incomingFileMeta.name}"`;
-                                updateFileMessage(currentIncomingMessageId, 'partner', incomingFileMeta.name, { url, state: 'Fehler: Prüfsumme stimmt nicht' });
-                            }
-                            incomingFileMeta = null;
-                            receivedChunks = [];
-                            receivedSize = 0;
-                            currentIncomingMessageId = null;
-                        })();
+                        const url = URL.createObjectURL(blob);
+                        
+                        statusDiv.innerText = `Status: "${incomingFileMeta.name}" empfangen!`;
+                        updateFileMessage(currentIncomingMessageId, 'partner', incomingFileMeta.name, { url, state: 'empfangen ✓' });
+                        
+                        incomingFileMeta = null;
+                        receivedChunks = [];
+                        receivedSize = 0;
+                        currentIncomingMessageId = null;
                     }
                 }
             };
@@ -374,12 +361,6 @@
         }
         sendMsgBtn.onclick = sendChatMessage;
         chatInput.onkeydown = (e) => { if (e.key === 'Enter') sendChatMessage(); };
-
-        async function sha256Hex(buffer) {
-            const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
-            const hashArray = Array.from(new Uint8Array(hashBuffer));
-            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-        }
 
         async function enqueueFile(file) {
             const transferId = `out-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -398,12 +379,11 @@
             const { id: transferId, file } = item;
 
             updateFileMessage(transferId, 'me', file.name, { state: 'wird vorbereitet…', progress: 0 });
-            statusDiv.innerText = `Status: Berechne Prüfsumme für "${file.name}"...`;
+            statusDiv.innerText = `Status: Sende Datei "${file.name}"...`;
 
             const arrayBuffer = await file.arrayBuffer();
-            const checksum = await sha256Hex(arrayBuffer);
 
-            dataChannel.send(JSON.stringify({ type: 'meta', id: transferId, name: file.name, size: file.size, checksum }));
+            dataChannel.send(JSON.stringify({ type: 'meta', id: transferId, name: file.name, size: file.size }));
 
             let offset = 0;
             while (offset < file.size) {
@@ -426,7 +406,6 @@
             processQueue();
         }
 
-        // Direktes Öffnen der Dateiauswahl ohne nervige Bestätigungsmeldung
         pickFileBtn.onclick = () => {
             folderInput.click();
         };
@@ -435,7 +414,6 @@
             const files = Array.from(folderInput.files || []);
             if (!files.length) return;
 
-            // Falls nur eine einzige Datei gewählt wurde, senden wir sie direkt unverpackt
             if (files.length === 1 && !files[0].webkitRelativePath.includes('/')) {
                 enqueueFile(files[0]);
                 folderInput.value = '';
@@ -509,9 +487,6 @@
             }
         });
 
-        // ==========================================
-        // HOST / RAUM ERSTELLEN
-        // ==========================================
         createRoomBtn.onclick = async () => {
             statusDiv.innerText = "Status: Initialisiere...";
             
@@ -575,9 +550,6 @@
             });
         };
 
-        // ==========================================
-        // GAST / RAUM BEITRETEN
-        // ==========================================
         joinRoomBtn.onclick = async () => {
             const roomId = roomIdInput.value.trim();
             if (!roomId) return alert("Raum-ID eingeben!");
