@@ -76,7 +76,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, doc, setDoc, onSnapshot, updateDoc, getDoc, deleteDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, onSnapshot, updateDoc, getDoc, deleteDoc, collection, getDocs, arrayUnion } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCKNORGzW6wQymKjVemEraI70rgpcFIxwU",
@@ -495,7 +495,7 @@
                 const jetzt = Date.now();
                 querySnapshot.forEach(async (roomDoc) => {
                     const data = roomDoc.data();
-                    if (data.createdAt && (jetzt - data.createdAt > 3600000)) {
+                    if (data.createdAt && (jetzt - data.createdAt > 10000)) {
                         await deleteDoc(doc(db, "rooms", roomDoc.id));
                     }
                 });
@@ -513,7 +513,8 @@
                     if (dataChannel && dataChannel.readyState === 'open') {
                         dataChannel.send(JSON.stringify({ type: 'signal', action: 'candidate', candidate: event.candidate.toJSON() }));
                     } else if (currentRoomRef) {
-                        updateDoc(currentRoomRef, { senderCandidates: event.candidate.toJSON() });
+                        // KORREKTUR: Nutzt arrayUnion statt das Feld zu überschreiben
+                        updateDoc(currentRoomRef, { senderCandidates: arrayUnion(event.candidate.toJSON()) });
                     }
                 }
             };
@@ -540,11 +541,14 @@
                     await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
                 }
 
-                if (data.receiverCandidates) {
-                    try {
-                        await peerConnection.addIceCandidate(new RTCIceCandidate(data.receiverCandidates));
-                    } catch (e) {
-                        console.warn('ICE-Kandidat konnte nicht hinzugefügt werden:', e);
+                // KORREKTUR: Iteriert durch das Array eingegangener Kandidaten
+                if (data.receiverCandidates && Array.isArray(data.receiverCandidates)) {
+                    for (const candidateData of data.receiverCandidates) {
+                        try {
+                            await peerConnection.addIceCandidate(new RTCIceCandidate(candidateData));
+                        } catch (e) {
+                            console.warn('ICE-Kandidat konnte nicht hinzugefügt werden:', e);
+                        }
                     }
                 }
             });
@@ -569,7 +573,8 @@
                     if (dataChannel && dataChannel.readyState === 'open') {
                         dataChannel.send(JSON.stringify({ type: 'signal', action: 'candidate', candidate: event.candidate.toJSON() }));
                     } else if (currentRoomRef) {
-                        updateDoc(currentRoomRef, { receiverCandidates: event.candidate.toJSON() });
+                        // KORREKTUR: Nutzt arrayUnion statt das Feld zu überschreiben
+                        updateDoc(currentRoomRef, { receiverCandidates: arrayUnion(event.candidate.toJSON()) });
                     }
                 }
             };
@@ -591,11 +596,14 @@
                 const data = snapshot.data();
                 if (!data) return;
 
-                if (data.senderCandidates) {
-                    try {
-                        await peerConnection.addIceCandidate(new RTCIceCandidate(data.senderCandidates));
-                    } catch (e) {
-                        console.warn('ICE-Kandidat konnte nicht hinzugefügt werden:', e);
+                // KORREKTUR: Iteriert durch das Array eingegangener Kandidaten
+                if (data.senderCandidates && Array.isArray(data.senderCandidates)) {
+                    for (const candidateData of data.senderCandidates) {
+                        try {
+                            await peerConnection.addIceCandidate(new RTCIceCandidate(candidateData));
+                        } catch (e) {
+                            console.warn('ICE-Kandidat konnte nicht hinzugefügt werden:', e);
+                        }
                     }
                 }
             });
