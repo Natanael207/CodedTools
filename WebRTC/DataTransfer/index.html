@@ -40,6 +40,7 @@
 
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body>
 
@@ -68,17 +69,16 @@
         <div id="chatWindow"></div>
         <div class="chat-input-area">
             <input type="text" id="chatInput" placeholder="Nachricht eingeben..." disabled>
-            <button id="pickFileBtn" type="button" title="Datei auswählen" style="font-size: 22px">+</button>
+            <button id="pickFileBtn" type="button" title="Ordner/Datei auswählen" style="font-size: 22px">+</button>
             <button id="sendMsgBtn" disabled title="Nachricht senden">Senden ➤</button>
         </div>
-        <input type="file" id="fileInput" class="hidden">
+        <input type="file" id="folderInput" class="hidden" webkitdirectory directory multiple>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getFirestore, doc, setDoc, onSnapshot, updateDoc, getDoc, deleteDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-        // TODO: ERSETZE DIESE KONFIGURATION MIT DEINEN FIREBASE-DATEN!
         const firebaseConfig = {
             apiKey: "AIzaSyCKNORGzW6wQymKjVemEraI70rgpcFIxwU",
             authDomain: "webrtc-file-transfer-ab804.firebaseapp.com",
@@ -91,7 +91,6 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         
-        // WICHTIG: Für Video/Audio benötigen wir oft funktionierende ICE-Server (STUN reicht meistens privat aus)
         const configuration = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
         let peerConnection;
@@ -109,12 +108,11 @@
         const joinRoomBtn = document.getElementById('joinRoomBtn');
         const roomIdInput = document.getElementById('roomIdInput');
 
-        // UI-Elemente Chat, QR, Video
         const chatWindow = document.getElementById('chatWindow');
         const chatInput = document.getElementById('chatInput');
         const sendMsgBtn = document.getElementById('sendMsgBtn');
         const pickFileBtn = document.getElementById('pickFileBtn');
-        const fileInput = document.getElementById('fileInput');
+        const folderInput = document.getElementById('folderInput');
         const qrContainer = document.getElementById('qrContainer');
         const qrcodeDiv = document.getElementById('qrcode');
         const generatedRoomIdSpan = document.getElementById('generatedRoomId');
@@ -126,15 +124,9 @@
         let currentIncomingMessageId = null;
         const fileMessageElements = new Map();
 
-        // Transfer manager / queue
-        const transferQueue = []; // {id, file}
+        const transferQueue = []; 
         let isSendingFile = false;
-        const BUFFERED_AMOUNT_LOW = 262144; // 256KB
-
-        function updateQueueUI() {
-            // Queue UI removed — queue state is shown as file messages in the chat.
-            return;
-        }
+        const BUFFERED_AMOUNT_LOW = 262144; 
 
         function waitForBufferedAmountBelow(threshold = BUFFERED_AMOUNT_LOW) {
             return new Promise((resolve) => {
@@ -144,10 +136,8 @@
                     dataChannel.onbufferedamountlow = null;
                     resolve();
                 };
-                // Some browsers support this; set threshold and wait for event
                 try { dataChannel.bufferedAmountLowThreshold = threshold; } catch (e) {}
                 dataChannel.onbufferedamountlow = onLow;
-                // Fallback poll in case event doesn't fire
                 const interval = setInterval(() => {
                     if (!dataChannel || dataChannel.bufferedAmount <= threshold) {
                         clearInterval(interval);
@@ -241,7 +231,6 @@
             }
         }
 
-        // NEU: Initialisiert die PeerConnection und fügt Video-Event-Listener hinzu
         function createPeerConnection() {
             stopSignalSubscription();
             peerConnection = new RTCPeerConnection(configuration);
@@ -257,12 +246,6 @@
                     stopSignalSubscription();
                 }
             };
-
-            peerConnection.onnegotiationneeded = async () => {
-                if (!dataChannel || dataChannel.readyState !== 'open') return;
-                if (peerConnection.signalingState !== 'stable' || isNegotiating) return;
-            };
-
         }
 
         function sendSignal(message) {
@@ -356,7 +339,6 @@
 
                     if (receivedSize >= incomingFileMeta.size) {
                         const blob = new Blob(receivedChunks);
-                        // compute checksum and verify
                         (async () => {
                             statusDiv.innerText = `Status: Prüfe Prüfsumme für "${incomingFileMeta.name}"...`;
                             const ab = await blob.arrayBuffer();
@@ -383,7 +365,6 @@
             };
         }
 
-        // Chat senden
         function sendChatMessage() {
             const text = chatInput.value.trim();
             if (!text) return;
@@ -394,7 +375,6 @@
         sendMsgBtn.onclick = sendChatMessage;
         chatInput.onkeydown = (e) => { if (e.key === 'Enter') sendChatMessage(); };
 
-        // Compute SHA-256 hex of an ArrayBuffer
         async function sha256Hex(buffer) {
             const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
             const hashArray = Array.from(new Uint8Array(hashBuffer));
@@ -405,36 +385,30 @@
             const transferId = `out-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
             appendFileMessage(file.name, 'me', { id: transferId, state: 'in Warteschlange' });
             transferQueue.push({ id: transferId, file });
-            updateQueueUI();
             processQueue();
         }
 
         async function processQueue() {
             if (isSendingFile) return;
-            if (transferQueue.length === 0) return updateQueueUI();
-            if (!dataChannel || dataChannel.readyState !== 'open') return; // wait for channel
+            if (transferQueue.length === 0) return;
+            if (!dataChannel || dataChannel.readyState !== 'open') return; 
 
             const item = transferQueue.shift();
-            updateQueueUI();
             isSendingFile = true;
             const { id: transferId, file } = item;
 
             updateFileMessage(transferId, 'me', file.name, { state: 'wird vorbereitet…', progress: 0 });
             statusDiv.innerText = `Status: Berechne Prüfsumme für "${file.name}"...`;
 
-            // Read whole file to compute checksum
             const arrayBuffer = await file.arrayBuffer();
             const checksum = await sha256Hex(arrayBuffer);
 
-            // Send meta including checksum
             dataChannel.send(JSON.stringify({ type: 'meta', id: transferId, name: file.name, size: file.size, checksum }));
 
-            // Send in chunks with flow-control
             let offset = 0;
             while (offset < file.size) {
                 const end = Math.min(offset + CHUNK_SIZE, file.size);
                 const chunk = arrayBuffer.slice(offset, end);
-                // Flow control: wait if bufferedAmount is high
                 if (dataChannel.bufferedAmount > BUFFERED_AMOUNT_LOW) {
                     await waitForBufferedAmountBelow();
                 }
@@ -452,12 +426,39 @@
             processQueue();
         }
 
-        pickFileBtn.onclick = () => fileInput.click();
-        fileInput.onchange = () => {
-            const file = fileInput.files?.[0];
-            if (file) {
-                enqueueFile(file);
-                fileInput.value = '';
+        // Direktes Öffnen der Dateiauswahl ohne nervige Bestätigungsmeldung
+        pickFileBtn.onclick = () => {
+            folderInput.click();
+        };
+
+        folderInput.onchange = async () => {
+            const files = Array.from(folderInput.files || []);
+            if (!files.length) return;
+
+            // Falls nur eine einzige Datei gewählt wurde, senden wir sie direkt unverpackt
+            if (files.length === 1 && !files[0].webkitRelativePath.includes('/')) {
+                enqueueFile(files[0]);
+                folderInput.value = '';
+                return;
+            }
+
+            const folderName = files[0].webkitRelativePath.split('/')[0] || 'ordner';
+            statusDiv.innerText = `Status: Zippe Ordner "${folderName}"...`;
+
+            try {
+                const zip = new JSZip();
+                files.forEach(file => {
+                    zip.file(file.webkitRelativePath, file);
+                });
+
+                const contentBlob = await zip.generateAsync({ type: "blob" });
+                const zippedFile = new File([contentBlob], `${folderName}.zip`, { type: "application/zip" });
+                
+                enqueueFile(zippedFile);
+            } catch (error) {
+                alert("Fehler beim Zippen des Ordners: " + error.message);
+            } finally {
+                folderInput.value = '';
             }
         };
 
@@ -473,6 +474,35 @@
         chatWindow.addEventListener('drop', (e) => {
             e.preventDefault();
             chatWindow.classList.remove('drag-over');
+            
+            const items = Array.from(e.dataTransfer?.items || []);
+            let containsFolder = false;
+
+            for (let item of items) {
+                if (item.kind === 'file') {
+                    const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
+                    if (entry && entry.isDirectory) {
+                        containsFolder = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!containsFolder) {
+                const files = Array.from(e.dataTransfer?.files || []);
+                for (let file of files) {
+                    if (!file.type && (file.size % 4096 === 0 || !file.name.includes('.'))) {
+                        containsFolder = true;
+                        break;
+                    }
+                }
+            }
+
+            if (containsFolder) {
+                alert("Das Hinzufügen von Ordnern per Drag & Drop wird nicht unterstützt. Bitte benutze das '+'-Symbol, um Ordner hochzuladen!");
+                return;
+            }
+
             const files = Array.from(e.dataTransfer?.files || []);
             if (files.length) {
                 files.forEach(file => enqueueFile(file));
@@ -499,7 +529,7 @@
             const roomId = Math.random().toString(36).substring(2, 9);
             currentRoomRef = doc(db, "rooms", roomId);
 
-            createPeerConnection(); // NEU: Ausgelagerte PC-Erstellung
+            createPeerConnection(); 
             dataChannel = peerConnection.createDataChannel("persistentFileChannel");
             setupDataChannelListeners();
 
@@ -560,7 +590,7 @@
 
             const roomData = roomSnapshot.data();
             
-            createPeerConnection(); // NEU: Ausgelagerte PC-Erstellung
+            createPeerConnection(); 
 
             peerConnection.onicecandidate = (event) => {
                 if (event.candidate) {
