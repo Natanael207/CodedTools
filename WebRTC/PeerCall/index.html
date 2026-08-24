@@ -1,0 +1,1683 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>PeerCall</title>
+
+    <style>
+        :root {
+            color-scheme: light;
+            --bg: #f5f7fb;
+            --panel: #ffffff;
+            --panel-2: #f8fbff;
+            --border: #dce5f0;
+            --text: #1f2937;
+            --muted: #64748b;
+            --accent: #2563eb;
+            --accent-hover: #1d4ed8;
+            --danger: #dc2626;
+            --danger-hover: #b91c1c;
+            --success: #16a34a;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 760px;
+            margin: 0 auto;
+            padding: 24px;
+            line-height: 1.6;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        h2 {
+            margin-bottom: 12px;
+        }
+
+        .box {
+            border: 1px solid var(--border);
+            padding: 20px;
+            border-radius: 14px;
+            margin-bottom: 20px;
+            background: var(--panel);
+            box-shadow: 0 6px 18px rgba(15, 23, 42, 0.05);
+        }
+
+        button {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 10px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 2px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        button:hover {
+            background: var(--accent-hover);
+        }
+
+        button:disabled {
+            background: #cbd5e1;
+            cursor: not-allowed;
+        }
+
+        button.danger {
+            background: var(--danger);
+        }
+
+        button.danger:hover {
+            background: var(--danger-hover);
+        }
+
+        button.secondary {
+            background: #64748b;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--panel-2);
+            font-size: 16px;
+        }
+
+        #status {
+            font-size: 0.95rem;
+            color: var(--muted);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        #qrContainer {
+            margin: 20px 0;
+            padding: 15px;
+            background: var(--panel-2);
+            border: 1px dashed var(--border);
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        #qrcode {
+            display: inline-block;
+            margin: 10px 0;
+        }
+
+        /* Anrufbereich */
+
+        #callArea {
+            text-align: center;
+        }
+
+        .call-status {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 25px;
+            text-align: left;
+        }
+
+        .connection-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            font-size: 0.9rem;
+            color: var(--muted);
+        }
+
+        .status-dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: #94a3b8;
+        }
+
+        .status-dot.connected {
+            background: var(--success);
+        }
+
+        .status-dot.connecting {
+            background: #f59e0b;
+        }
+
+        .call-avatar {
+            width: 110px;
+            height: 110px;
+            border-radius: 50%;
+            margin: 30px auto 18px;
+            background: linear-gradient(135deg, #2563eb, #60a5fa);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 42px;
+            box-shadow: 0 10px 30px rgba(37, 99, 235, 0.25);
+        }
+
+        .call-title {
+            font-size: 1.4rem;
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+
+        .call-subtitle {
+            color: var(--muted);
+            font-size: 0.95rem;
+        }
+
+        #callTimer {
+            font-size: 2rem;
+            font-variant-numeric: tabular-nums;
+            margin: 20px 0;
+            font-weight: 500;
+        }
+
+        .call-controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+            margin-top: 30px;
+        }
+
+        .call-control {
+            width: 54px;
+            height: 54px;
+            border-radius: 50%;
+            padding: 0;
+            font-size: 21px;
+        }
+
+        .call-control.muted {
+            background: #334155;
+        }
+
+        .call-control.hangup {
+            width: 64px;
+            height: 64px;
+            background: var(--danger);
+            font-size: 24px;
+        }
+
+        .room-info {
+            margin-top: 25px;
+            padding-top: 15px;
+            border-top: 1px solid var(--border);
+            color: var(--muted);
+            font-size: 0.85rem;
+        }
+
+        .room-id {
+            color: var(--text);
+            font-weight: bold;
+            font-family: monospace;
+        }
+
+        .microphone-info {
+            margin-top: 15px;
+            color: var(--muted);
+            font-size: 0.85rem;
+        }
+
+        #remoteAudio {
+            display: none;
+        }
+
+        @media (max-width: 500px) {
+            body {
+                padding: 14px;
+            }
+
+            .box {
+                padding: 16px;
+            }
+
+            .call-avatar {
+                width: 95px;
+                height: 95px;
+                font-size: 36px;
+            }
+        }
+    </style>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+
+<body>
+
+    <h2>📞 PeerCall</h2>
+
+    <!-- Raum erstellen / beitreten -->
+
+    <div id="setupArea" class="box">
+
+        <h3>Raum-Optionen</h3>
+
+        <button id="createRoomBtn">
+            📞 Raum erstellen
+        </button>
+
+        <div id="qrContainer" class="hidden">
+
+            <p>
+                <strong>Mit diesem QR-Code verbinden:</strong>
+            </p>
+
+            <div id="qrcode"></div>
+
+            <p>
+                <small>
+                    Oder gib diese Raum-ID ein:
+                    <strong id="generatedRoomId"></strong>
+                </small>
+            </p>
+
+            <p>
+                <small>
+                    Sobald die andere Person die Raum-ID eingibt,
+                    wird der Anruf aufgebaut.
+                </small>
+            </p>
+
+        </div>
+
+        <p>
+            Oder einem bestehenden Raum beitreten:
+        </p>
+
+        <input
+            type="text"
+            id="roomIdInput"
+            placeholder="Raum-ID hier einfügen"
+            autocomplete="off"
+        >
+
+        <button id="joinRoomBtn">
+            Verbinden
+        </button>
+
+    </div>
+
+
+    <!-- Anruf -->
+
+    <div id="callArea" class="box hidden">
+
+        <div class="call-status">
+
+            <div class="connection-status">
+                <span id="statusDot" class="status-dot"></span>
+                <span id="status">Bereit.</span>
+            </div>
+
+            <div style="font-size: 0.85rem; color: var(--muted);">
+                Raum:
+                <span id="currentRoomId" class="room-id">-</span>
+            </div>
+
+        </div>
+
+
+        <div class="call-avatar">
+            📞
+        </div>
+
+        <div class="call-title">
+            P2P-Anruf
+        </div>
+
+        <div class="call-subtitle" id="callSubtitle">
+            Verbindung wird hergestellt...
+        </div>
+
+        <div id="callTimer">
+            00:00
+        </div>
+
+
+        <div class="call-controls">
+
+            <button
+                id="muteBtn"
+                class="call-control"
+                title="Mikrofon stummschalten"
+                disabled
+            >
+                🎙️
+            </button>
+
+            <button
+                id="hangupBtn"
+                class="call-control hangup"
+                title="Auflegen"
+            >
+                📞
+            </button>
+
+        </div>
+
+
+        <div class="microphone-info">
+            Mikrofon wird direkt zwischen den Browsern übertragen.
+        </div>
+
+
+        <div class="room-info">
+            Raum-ID:
+            <span id="callRoomId" class="room-id">-</span>
+        </div>
+
+    </div>
+
+
+    <!-- Remote Audio -->
+
+    <audio id="remoteAudio" autoplay playsinline></audio>
+
+
+    <script type="module">
+
+        import {
+            initializeApp
+        } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+
+        import {
+            getFirestore,
+            doc,
+            setDoc,
+            onSnapshot,
+            updateDoc,
+            getDoc,
+            deleteDoc,
+            collection,
+            getDocs,
+            arrayUnion
+        } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+
+        /*
+         * FIREBASE
+         */
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCKNORGzW6wQymKjVemEraI70rgpcFIxwU",
+            authDomain: "webrtc-file-transfer-ab804.firebaseapp.com",
+            projectId: "webrtc-file-transfer-ab804",
+            storageBucket: "webrtc-file-transfer-ab804.firebasestorage.app",
+            messagingSenderId: "780345941054",
+            appId: "1:780345941054:web:e9eb34fa3ce44fe6e4c56f"
+        };
+
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+
+        /*
+         * WEBRTC
+         *
+         * Aktuell nur STUN.
+         * Kein TURN-Server.
+         */
+
+        const configuration = {
+            iceServers: [
+                {
+                    urls: "stun:stun.l.google.com:19302"
+                }
+            ]
+        };
+
+
+        /*
+         * STATE
+         */
+
+        let peerConnection = null;
+        let localStream = null;
+        let currentRoomRef = null;
+
+        let signalUnsubscribe = null;
+
+        let pendingRemoteCandidates = [];
+
+        let isHost = false;
+        let isMuted = false;
+
+        let callTimerInterval = null;
+        let callStartedAt = null;
+
+
+        /*
+         * ELEMENTE
+         */
+
+        const setupArea =
+            document.getElementById("setupArea");
+
+        const callArea =
+            document.getElementById("callArea");
+
+        const statusDiv =
+            document.getElementById("status");
+
+        const statusDot =
+            document.getElementById("statusDot");
+
+        const callSubtitle =
+            document.getElementById("callSubtitle");
+
+        const currentRoomIdSpan =
+            document.getElementById("currentRoomId");
+
+        const callRoomIdSpan =
+            document.getElementById("callRoomId");
+
+        const createRoomBtn =
+            document.getElementById("createRoomBtn");
+
+        const joinRoomBtn =
+            document.getElementById("joinRoomBtn");
+
+        const roomIdInput =
+            document.getElementById("roomIdInput");
+
+        const qrContainer =
+            document.getElementById("qrContainer");
+
+        const qrcodeDiv =
+            document.getElementById("qrcode");
+
+        const generatedRoomIdSpan =
+            document.getElementById("generatedRoomId");
+
+        const remoteAudio =
+            document.getElementById("remoteAudio");
+
+        const muteBtn =
+            document.getElementById("muteBtn");
+
+        const hangupBtn =
+            document.getElementById("hangupBtn");
+
+        const callTimer =
+            document.getElementById("callTimer");
+
+
+        /*
+         * UI
+         */
+
+        function showCallUI(roomId) {
+
+            setupArea.classList.add("hidden");
+            callArea.classList.remove("hidden");
+
+            currentRoomIdSpan.innerText = roomId;
+            callRoomIdSpan.innerText = roomId;
+        }
+
+
+        function setStatus(text, state = "normal") {
+
+            statusDiv.innerText = text;
+
+            statusDot.classList.remove(
+                "connected",
+                "connecting"
+            );
+
+            if (state === "connected") {
+                statusDot.classList.add("connected");
+            }
+
+            if (state === "connecting") {
+                statusDot.classList.add("connecting");
+            }
+        }
+
+
+        /*
+         * SIGNALING AUFRÄUMEN
+         */
+
+        function stopSignalSubscription() {
+
+            if (signalUnsubscribe) {
+
+                signalUnsubscribe();
+
+                signalUnsubscribe = null;
+            }
+        }
+
+
+        /*
+         * MIKROFON
+         */
+
+        async function getMicrophone() {
+
+            if (localStream) {
+                return localStream;
+            }
+
+            try {
+
+                localStream =
+                    await navigator.mediaDevices.getUserMedia({
+                        audio: true,
+                        video: false
+                    });
+
+                return localStream;
+
+            } catch (error) {
+
+                console.error(
+                    "Mikrofon konnte nicht aktiviert werden:",
+                    error
+                );
+
+                alert(
+                    "Das Mikrofon konnte nicht aktiviert werden. " +
+                    "Bitte erlaube den Mikrofonzugriff im Browser."
+                );
+
+                throw error;
+            }
+        }
+
+
+        /*
+         * PEER CONNECTION
+         */
+
+        function createPeerConnection() {
+
+            stopSignalSubscription();
+
+            pendingRemoteCandidates = [];
+
+            peerConnection =
+                new RTCPeerConnection(configuration);
+
+
+            /*
+             * Remote Audio
+             */
+
+            peerConnection.ontrack = async (event) => {
+
+                if (event.streams && event.streams[0]) {
+
+                    remoteAudio.srcObject =
+                        event.streams[0];
+
+                    try {
+                        await remoteAudio.play();
+                    } catch (error) {
+                        console.warn(
+                            "Audio konnte nicht automatisch gestartet werden:",
+                            error
+                        );
+                    }
+                }
+            };
+
+
+            /*
+             * Verbindungsstatus
+             */
+
+            peerConnection.onconnectionstatechange = () => {
+
+                const state =
+                    peerConnection.connectionState;
+
+                console.log(
+                    "Connection State:",
+                    state
+                );
+
+
+                if (state === "connecting") {
+
+                    setStatus(
+                        "Verbindung wird hergestellt...",
+                        "connecting"
+                    );
+
+                    callSubtitle.innerText =
+                        "Verbindung wird hergestellt...";
+                }
+
+
+                if (state === "connected") {
+
+                    setStatus(
+                        "Verbunden",
+                        "connected"
+                    );
+
+                    callSubtitle.innerText =
+                        "P2P-Anruf aktiv";
+
+                    startCallTimer();
+
+                    stopSignalSubscription();
+
+                    muteBtn.disabled = false;
+                }
+
+
+                if (
+                    state === "disconnected" ||
+                    state === "failed"
+                ) {
+
+                    setStatus(
+                        "Verbindung verloren."
+                    );
+
+                    callSubtitle.innerText =
+                        "Verbindung wurde beendet.";
+
+                    stopCallTimer();
+
+                    muteBtn.disabled = true;
+                }
+
+
+                if (state === "closed") {
+
+                    setStatus(
+                        "Anruf beendet."
+                    );
+
+                    callSubtitle.innerText =
+                        "Anruf beendet.";
+
+                    stopCallTimer();
+
+                    muteBtn.disabled = true;
+                }
+            };
+
+
+            /*
+             * ICE Status
+             */
+
+            peerConnection.oniceconnectionstatechange =
+                () => {
+
+                    console.log(
+                        "ICE State:",
+                        peerConnection.iceConnectionState
+                    );
+                };
+        }
+
+
+        /*
+         * ICE CANDIDATE
+         *
+         * Diese Funktion wird für Host und Gast
+         * separat gesetzt.
+         */
+
+        function setupIceCandidateHandling() {
+
+            peerConnection.onicecandidate =
+                async (event) => {
+
+                    if (!event.candidate) {
+                        return;
+                    }
+
+                    if (!currentRoomRef) {
+                        return;
+                    }
+
+                    const candidate =
+                        event.candidate.toJSON();
+
+                    try {
+
+                        if (isHost) {
+
+                            await updateDoc(
+                                currentRoomRef,
+                                {
+                                    senderCandidates:
+                                        arrayUnion(candidate)
+                                }
+                            );
+
+                        } else {
+
+                            await updateDoc(
+                                currentRoomRef,
+                                {
+                                    receiverCandidates:
+                                        arrayUnion(candidate)
+                                }
+                            );
+                        }
+
+                    } catch (error) {
+
+                        console.error(
+                            "ICE Candidate konnte nicht gespeichert werden:",
+                            error
+                        );
+                    }
+                };
+        }
+
+
+        /*
+         * REMOTE ICE CANDIDATE
+         *
+         * Falls ein Candidate eintrifft,
+         * bevor setRemoteDescription fertig ist,
+         * wird er zwischengespeichert.
+         */
+
+        async function addRemoteCandidate(candidateData) {
+
+            if (!peerConnection) {
+                return;
+            }
+
+
+            if (
+                !peerConnection.remoteDescription
+            ) {
+
+                pendingRemoteCandidates.push(
+                    candidateData
+                );
+
+                return;
+            }
+
+
+            try {
+
+                await peerConnection.addIceCandidate(
+                    new RTCIceCandidate(candidateData)
+                );
+
+            } catch (error) {
+
+                console.warn(
+                    "ICE Candidate konnte nicht hinzugefügt werden:",
+                    error
+                );
+            }
+        }
+
+
+        async function flushRemoteCandidates() {
+
+            if (!peerConnection) {
+                return;
+            }
+
+            if (!peerConnection.remoteDescription) {
+                return;
+            }
+
+            const candidates =
+                pendingRemoteCandidates;
+
+            pendingRemoteCandidates = [];
+
+            for (const candidate of candidates) {
+
+                try {
+
+                    await peerConnection.addIceCandidate(
+                        new RTCIceCandidate(candidate)
+                    );
+
+                } catch (error) {
+
+                    console.warn(
+                        "Gespeicherter ICE Candidate konnte nicht hinzugefügt werden:",
+                        error
+                    );
+                }
+            }
+        }
+
+
+        /*
+         * CALL TIMER
+         */
+
+        function startCallTimer() {
+
+            if (callTimerInterval) {
+                return;
+            }
+
+            callStartedAt = Date.now();
+
+            callTimerInterval =
+                setInterval(updateCallTimer, 1000);
+
+            updateCallTimer();
+        }
+
+
+        function updateCallTimer() {
+
+            if (!callStartedAt) {
+                return;
+            }
+
+            const elapsed =
+                Math.floor(
+                    (Date.now() - callStartedAt) / 1000
+                );
+
+            const minutes =
+                Math.floor(elapsed / 60)
+                    .toString()
+                    .padStart(2, "0");
+
+            const seconds =
+                (elapsed % 60)
+                    .toString()
+                    .padStart(2, "0");
+
+            callTimer.innerText =
+                `${minutes}:${seconds}`;
+        }
+
+
+        function stopCallTimer() {
+
+            if (callTimerInterval) {
+
+                clearInterval(
+                    callTimerInterval
+                );
+
+                callTimerInterval = null;
+            }
+
+            callStartedAt = null;
+        }
+
+
+        /*
+         * MUTE
+         */
+
+        muteBtn.onclick = () => {
+
+            if (!localStream) {
+                return;
+            }
+
+            const audioTracks =
+                localStream.getAudioTracks();
+
+            if (!audioTracks.length) {
+                return;
+            }
+
+            isMuted = !isMuted;
+
+            audioTracks.forEach(track => {
+                track.enabled = !isMuted;
+            });
+
+
+            if (isMuted) {
+
+                muteBtn.innerText = "🔇";
+                muteBtn.classList.add("muted");
+                muteBtn.title =
+                    "Mikrofon einschalten";
+
+            } else {
+
+                muteBtn.innerText = "🎙️";
+                muteBtn.classList.remove("muted");
+                muteBtn.title =
+                    "Mikrofon stummschalten";
+            }
+        };
+
+
+        /*
+         * AUFLEGEN
+         */
+
+        hangupBtn.onclick = () => {
+
+            endCall(true);
+        };
+
+
+        async function endCall(deleteRoom = false) {
+
+            stopSignalSubscription();
+
+            stopCallTimer();
+
+
+            if (localStream) {
+
+                localStream
+                    .getTracks()
+                    .forEach(track => track.stop());
+
+                localStream = null;
+            }
+
+
+            if (peerConnection) {
+
+                try {
+                    peerConnection.close();
+                } catch (error) {}
+
+                peerConnection = null;
+            }
+
+
+            remoteAudio.srcObject = null;
+
+
+            muteBtn.disabled = true;
+
+            isMuted = false;
+
+            muteBtn.innerText = "🎙️";
+            muteBtn.classList.remove("muted");
+
+
+            /*
+             * Nur der Host löscht den Raum.
+             *
+             * Dadurch kann der Gast nicht versehentlich
+             * den Raum während des laufenden Calls löschen.
+             */
+
+            if (
+                deleteRoom &&
+                isHost &&
+                currentRoomRef
+            ) {
+
+                try {
+                    await deleteDoc(
+                        currentRoomRef
+                    );
+                } catch (error) {
+
+                    console.warn(
+                        "Raum konnte nicht gelöscht werden:",
+                        error
+                    );
+                }
+            }
+
+
+            setStatus(
+                "Anruf beendet."
+            );
+
+            callSubtitle.innerText =
+                "Anruf beendet.";
+
+            callTimer.innerText =
+                "00:00";
+
+
+            /*
+             * Nach dem Auflegen zurück zur
+             * Raum-Auswahl.
+             */
+
+            setTimeout(() => {
+
+                callArea.classList.add("hidden");
+                setupArea.classList.remove("hidden");
+
+                roomIdInput.value = "";
+
+                qrContainer.classList.add("hidden");
+
+                qrcodeDiv.innerHTML = "";
+
+                generatedRoomIdSpan.innerText = "";
+
+                currentRoomIdSpan.innerText = "-";
+                callRoomIdSpan.innerText = "-";
+
+                currentRoomRef = null;
+
+                isHost = false;
+
+            }, 500);
+        }
+
+
+        /*
+         * RAUM ERSTELLEN
+         */
+
+        createRoomBtn.onclick =
+            async () => {
+
+                try {
+
+                    setStatus(
+                        "Mikrofon wird vorbereitet...",
+                        "connecting"
+                    );
+
+
+                    /*
+                     * Mikrofon VOR dem Offer aktivieren.
+                     */
+
+                    await getMicrophone();
+
+
+                    /*
+                     * Alte Räume aufräumen.
+                     */
+
+                    try {
+
+                        const querySnapshot =
+                            await getDocs(
+                                collection(db, "rooms")
+                            );
+
+                        const jetzt =
+                            Date.now();
+
+                        querySnapshot.forEach(
+                            async (roomDoc) => {
+
+                                const data =
+                                    roomDoc.data();
+
+                                if (
+                                    data.createdAt &&
+                                    (
+                                        jetzt -
+                                        data.createdAt
+                                    ) > 120000
+                                ) {
+
+                                    try {
+
+                                        await deleteDoc(
+                                            doc(
+                                                db,
+                                                "rooms",
+                                                roomDoc.id
+                                            )
+                                        );
+
+                                    } catch (error) {}
+                                }
+                            }
+                        );
+
+                    } catch (error) {
+
+                        console.warn(
+                            "Alte Räume konnten nicht bereinigt werden:",
+                            error
+                        );
+                    }
+
+
+                    /*
+                     * Host
+                     */
+
+                    isHost = true;
+
+
+                    const roomId =
+                        Math.random()
+                            .toString(36)
+                            .substring(2, 9);
+
+
+                    currentRoomRef =
+                        doc(
+                            db,
+                            "rooms",
+                            roomId
+                        );
+
+
+                    createPeerConnection();
+
+                    setupIceCandidateHandling();
+
+
+                    /*
+                     * Mikrofon-Tracks an WebRTC anhängen.
+                     */
+
+                    localStream
+                        .getTracks()
+                        .forEach(track => {
+
+                            peerConnection.addTrack(
+                                track,
+                                localStream
+                            );
+                        });
+
+
+                    /*
+                     * Offer erzeugen.
+                     */
+
+                    const offer =
+                        await peerConnection.createOffer();
+
+
+                    await peerConnection.setLocalDescription(
+                        offer
+                    );
+
+
+                    /*
+                     * Room in Firebase erstellen.
+                     */
+
+                    await setDoc(
+                        currentRoomRef,
+                        {
+                            offer: {
+                                type: offer.type,
+                                sdp: offer.sdp
+                            },
+
+                            createdAt: Date.now()
+                        }
+                    );
+
+
+                    /*
+                     * UI
+                     */
+
+                    showCallUI(roomId);
+
+                    setStatus(
+                        "Warte auf Partner...",
+                        "connecting"
+                    );
+
+                    callSubtitle.innerText =
+                        "Warte auf die andere Person...";
+
+
+                    /*
+                     * QR-Code
+                     */
+
+                    qrcodeDiv.innerHTML = "";
+
+                    const joinUrl =
+                        `${window.location.origin}${window.location.pathname}?room=${roomId}`;
+
+
+                    new QRCode(
+                        qrcodeDiv,
+                        {
+                            text: joinUrl,
+                            width: 180,
+                            height: 180
+                        }
+                    );
+
+
+                    generatedRoomIdSpan.innerText =
+                        roomId;
+
+                    qrContainer.classList.remove(
+                        "hidden"
+                    );
+
+
+                    /*
+                     * Firebase Signaling
+                     */
+
+                    signalUnsubscribe =
+                        onSnapshot(
+                            currentRoomRef,
+                            async (snapshot) => {
+
+                                const data =
+                                    snapshot.data();
+
+                                if (!data) {
+                                    return;
+                                }
+
+
+                                /*
+                                 * Answer vom Gast
+                                 */
+
+                                if (
+                                    data.answer &&
+                                    !peerConnection
+                                        .currentRemoteDescription
+                                ) {
+
+                                    qrContainer.classList.add(
+                                        "hidden"
+                                    );
+
+
+                                    try {
+
+                                        await peerConnection
+                                            .setRemoteDescription(
+                                                new RTCSessionDescription(
+                                                    data.answer
+                                                )
+                                            );
+
+
+                                        await flushRemoteCandidates();
+
+                                    } catch (error) {
+
+                                        console.error(
+                                            "Answer konnte nicht gesetzt werden:",
+                                            error
+                                        );
+                                    }
+                                }
+
+
+                                /*
+                                 * ICE Candidates vom Gast
+                                 */
+
+                                if (
+                                    data.receiverCandidates &&
+                                    Array.isArray(
+                                        data.receiverCandidates
+                                    )
+                                ) {
+
+                                    for (
+                                        const candidateData
+                                        of data.receiverCandidates
+                                    ) {
+
+                                        await addRemoteCandidate(
+                                            candidateData
+                                        );
+                                    }
+                                }
+                            }
+                        );
+
+
+                } catch (error) {
+
+                    console.error(
+                        "Fehler beim Erstellen des Raums:",
+                        error
+                    );
+
+                    setStatus(
+                        "Fehler beim Erstellen des Anrufs."
+                    );
+
+                    alert(
+                        "Der Anruf konnte nicht gestartet werden:\n\n" +
+                        error.message
+                    );
+                }
+            };
+
+
+        /*
+         * RAUM BEITRETEN
+         */
+
+        joinRoomBtn.onclick =
+            async () => {
+
+                const roomId =
+                    roomIdInput.value.trim();
+
+
+                if (!roomId) {
+
+                    alert(
+                        "Bitte eine Raum-ID eingeben."
+                    );
+
+                    return;
+                }
+
+
+                try {
+
+                    setStatus(
+                        "Verbinde...",
+                        "connecting"
+                    );
+
+
+                    /*
+                     * Mikrofon vorbereiten.
+                     */
+
+                    await getMicrophone();
+
+
+                    isHost = false;
+
+
+                    currentRoomRef =
+                        doc(
+                            db,
+                            "rooms",
+                            roomId
+                        );
+
+
+                    /*
+                     * Room aus Firebase laden.
+                     */
+
+                    const roomSnapshot =
+                        await getDoc(
+                            currentRoomRef
+                        );
+
+
+                    if (!roomSnapshot.exists()) {
+
+                        alert(
+                            "Raum nicht gefunden oder bereits beendet."
+                        );
+
+                        setStatus(
+                            "Raum nicht gefunden."
+                        );
+
+                        return;
+                    }
+
+
+                    const roomData =
+                        roomSnapshot.data();
+
+
+                    if (!roomData.offer) {
+
+                        alert(
+                            "Dieser Raum enthält noch keinen Anruf."
+                        );
+
+                        return;
+                    }
+
+
+                    /*
+                     * Peer Connection
+                     */
+
+                    createPeerConnection();
+
+                    setupIceCandidateHandling();
+
+
+                    /*
+                     * Mikrofon an WebRTC hängen.
+                     */
+
+                    localStream
+                        .getTracks()
+                        .forEach(track => {
+
+                            peerConnection.addTrack(
+                                track,
+                                localStream
+                            );
+                        });
+
+
+                    /*
+                     * Offer setzen.
+                     */
+
+                    await peerConnection
+                        .setRemoteDescription(
+                            new RTCSessionDescription(
+                                roomData.offer
+                            )
+                        );
+
+
+                    /*
+                     * Bereits vorhandene Host-Candidates
+                     * hinzufügen.
+                     */
+
+                    if (
+                        roomData.senderCandidates &&
+                        Array.isArray(
+                            roomData.senderCandidates
+                        )
+                    ) {
+
+                        for (
+                            const candidateData
+                            of roomData.senderCandidates
+                        ) {
+
+                            await addRemoteCandidate(
+                                candidateData
+                            );
+                        }
+                    }
+
+
+                    /*
+                     * Answer erzeugen.
+                     */
+
+                    const answer =
+                        await peerConnection.createAnswer();
+
+
+                    await peerConnection.setLocalDescription(
+                        answer
+                    );
+
+
+                    /*
+                     * Answer in Firebase speichern.
+                     */
+
+                    await updateDoc(
+                        currentRoomRef,
+                        {
+                            answer: {
+                                type: answer.type,
+                                sdp: answer.sdp
+                            }
+                        }
+                    );
+
+
+                    /*
+                     * Call UI anzeigen.
+                     */
+
+                    showCallUI(roomId);
+
+                    setStatus(
+                        "Verbindung wird hergestellt...",
+                        "connecting"
+                    );
+
+                    callSubtitle.innerText =
+                        "Verbindung wird hergestellt...";
+
+
+                    /*
+                     * Firebase Signaling
+                     */
+
+                    signalUnsubscribe =
+                        onSnapshot(
+                            currentRoomRef,
+                            async (snapshot) => {
+
+                                const data =
+                                    snapshot.data();
+
+                                if (!data) {
+                                    return;
+                                }
+
+
+                                /*
+                                 * Host ICE Candidates
+                                 */
+
+                                if (
+                                    data.senderCandidates &&
+                                    Array.isArray(
+                                        data.senderCandidates
+                                    )
+                                ) {
+
+                                    for (
+                                        const candidateData
+                                        of data.senderCandidates
+                                    ) {
+
+                                        await addRemoteCandidate(
+                                            candidateData
+                                        );
+                                    }
+                                }
+                            }
+                        );
+
+
+                } catch (error) {
+
+                    console.error(
+                        "Fehler beim Beitreten:",
+                        error
+                    );
+
+                    setStatus(
+                        "Verbindung fehlgeschlagen."
+                    );
+
+                    alert(
+                        "Der Anruf konnte nicht hergestellt werden:\n\n" +
+                        error.message
+                    );
+                }
+            };
+
+
+        /*
+         * QR-CODE / URL
+         *
+         * Wenn ?room=XYZ vorhanden ist,
+         * wird die ID automatisch eingetragen.
+         *
+         * Es muss trotzdem auf "Verbinden"
+         * geklickt werden.
+         */
+
+        window.addEventListener(
+            "DOMContentLoaded",
+            () => {
+
+                const urlParams =
+                    new URLSearchParams(
+                        window.location.search
+                    );
+
+
+                const roomFromUrl =
+                    urlParams.get("room");
+
+
+                if (roomFromUrl) {
+
+                    roomIdInput.value =
+                        roomFromUrl;
+
+
+                    statusDiv.innerText =
+                        "Raum-ID erkannt. Klicke auf „Verbinden“.";
+                }
+            }
+        );
+
+
+        /*
+         * ENTER-TASTE
+         *
+         * Raum-ID kann auch einfach mit Enter
+         * bestätigt werden.
+         */
+
+        roomIdInput.addEventListener(
+            "keydown",
+            (event) => {
+
+                if (event.key === "Enter") {
+
+                    joinRoomBtn.click();
+                }
+            }
+        );
+
+    </script>
+
+</body>
+</html>
