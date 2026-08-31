@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UnTimer</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0f1117;
+      color: #f5f7fa;
+    }
+
+    .container {
+      width: min(420px, 90%);
+      text-align: center;
+    }
+
+    h1 {
+      font-size: 2.2rem;
+      margin-bottom: 8px;
+      letter-spacing: -1px;
+    }
+
+    .subtitle {
+      color: #9299a8;
+      margin-bottom: 40px;
+    }
+
+    .settings {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 25px;
+    }
+
+    .input-group {
+      flex: 1;
+      text-align: left;
+    }
+
+    label {
+      display: block;
+      color: #9299a8;
+      font-size: 0.9rem;
+      margin-bottom: 8px;
+    }
+
+    input {
+      width: 100%;
+      padding: 15px;
+      border: 2px solid #292d38;
+      border-radius: 12px;
+      background: #181b23;
+      color: white;
+      font-size: 1.1rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input:focus {
+      border-color: #7c5cff;
+    }
+
+    .unit {
+      font-size: 0.8rem;
+      color: #6f7685;
+      margin-top: 5px;
+    }
+
+    button {
+      border: none;
+      border-radius: 12px;
+      padding: 16px 25px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.15s, opacity 0.15s;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+    }
+
+    button:active {
+      transform: translateY(1px);
+    }
+
+    #startButton {
+      width: 100%;
+      background: #7c5cff;
+      color: white;
+      font-size: 1.1rem;
+      box-shadow: 0 8px 25px rgba(124, 92, 255, 0.25);
+    }
+
+    #stopButton {
+      margin-top: 30px;
+      background: #292d38;
+      color: #d8dbe2;
+    }
+
+    .running,
+    .finished {
+      display: none;
+    }
+
+    .status-icon {
+      font-size: 4rem;
+      margin-bottom: 20px;
+    }
+
+    .running h2,
+    .finished h2 {
+      font-size: 1.8rem;
+      margin-bottom: 10px;
+    }
+
+    .running p {
+      color: #9299a8;
+    }
+
+    .finished p {
+      color: #9299a8;
+      margin-bottom: 30px;
+    }
+
+    #restartButton {
+      background: #7c5cff;
+      color: white;
+    }
+
+    .error {
+      color: #ff6b6b;
+      font-size: 0.9rem;
+      min-height: 22px;
+      margin-bottom: 5px;
+    }
+
+    /* Kleine Animation während des Lernens */
+    .pulse {
+      width: 90px;
+      height: 90px;
+      margin: 0 auto 25px;
+      border-radius: 50%;
+      background: #7c5cff;
+      animation: pulse 2s infinite;
+      box-shadow: 0 0 0 0 rgba(124, 92, 255, 0.5);
+    }
+
+    @keyframes pulse {
+      0% {
+        box-shadow: 0 0 0 0 rgba(124, 92, 255, 0.5);
+      }
+
+      70% {
+        box-shadow: 0 0 0 25px rgba(124, 92, 255, 0);
+      }
+
+      100% {
+        box-shadow: 0 0 0 0 rgba(124, 92, 255, 0);
+      }
+    }
+
+    @media (max-width: 450px) {
+      .settings {
+        flex-direction: column;
+        gap: 10px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <main class="container">
+
+    <!-- STARTSCREEN -->
+    <section id="setup">
+
+      <h1>UnTimer</h1>
+
+      <p class="subtitle">
+        Du weißt nicht, wann es klingelt.
+      </p>
+
+      <div class="settings">
+
+        <div class="input-group">
+          <label for="minTime">Minimum</label>
+          <input
+            id="minTime"
+            type="number"
+            min="1"
+            max="1440"
+            value="25"
+          >
+          <div class="unit">Minuten</div>
+        </div>
+
+        <div class="input-group">
+          <label for="maxTime">Maximum</label>
+          <input
+            id="maxTime"
+            type="number"
+            min="1"
+            max="1440"
+            value="45"
+          >
+          <div class="unit">Minuten</div>
+        </div>
+
+      </div>
+
+      <div id="error" class="error"></div>
+
+      <button id="startButton">
+        ▶ Start
+      </button>
+
+    </section>
+
+
+    <!-- TIMER LÄUFT -->
+    <section id="running" class="running">
+
+      <h1>UnTimer</h1>
+
+      <div class="pulse"></div>
+
+      <h2>Fokus läuft</h2>
+
+      <p>
+        Konzentriere dich.<br>
+        Du weißt nicht, wann es klingelt.
+      </p>
+
+      <button id="stopButton">
+        ■ Stoppen
+      </button>
+
+    </section>
+
+
+    <!-- TIMER FERTIG -->
+    <section id="finished" class="finished">
+
+      <div class="status-icon">🔔</div>
+
+      <h2>Geschafft!</h2>
+
+      <p id="resultText">
+        Deine Fokuszeit ist vorbei.
+      </p>
+
+      <button id="restartButton">
+        ↻ Neuer Timer
+      </button>
+
+    </section>
+
+  </main>
+
+
+  <script>
+    // =========================
+    // Elemente
+    // =========================
+
+    const setup = document.getElementById("setup");
+    const running = document.getElementById("running");
+    const finished = document.getElementById("finished");
+
+    const minInput = document.getElementById("minTime");
+    const maxInput = document.getElementById("maxTime");
+
+    const startButton = document.getElementById("startButton");
+    const stopButton = document.getElementById("stopButton");
+    const restartButton = document.getElementById("restartButton");
+
+    const errorElement = document.getElementById("error");
+    const resultText = document.getElementById("resultText");
+
+
+    // =========================
+    // Timer-Variablen
+    // =========================
+
+    let timerId = null;
+    let startTime = null;
+    let targetTime = null;
+
+
+    // =========================
+    // Audio
+    // =========================
+
+    let audioContext = null;
+
+
+    /*
+      Browser erlauben Audio normalerweise erst,
+      nachdem der Benutzer mit der Seite interagiert hat.
+
+      Der Start-Button ist genau diese Interaktion.
+    */
+    function initializeAudio() {
+      if (!audioContext) {
+        audioContext = new (
+          window.AudioContext ||
+          window.webkitAudioContext
+        )();
+      }
+
+      if (audioContext.state === "suspended") {
+        audioContext.resume();
+      }
+    }
+
+
+    // =========================
+    // Alarmton
+    // =========================
+
+    function playAlarm() {
+
+      if (!audioContext) {
+        initializeAudio();
+      }
+
+      const now = audioContext.currentTime;
+
+      // Mehrere Töne hintereinander für einen deutlichen Alarm
+      const frequencies = [
+        880,
+        660,
+        880,
+        660,
+        880
+      ];
+
+      frequencies.forEach((frequency, index) => {
+
+        const oscillator = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+
+        oscillator.type = "sine";
+        oscillator.frequency.value = frequency;
+
+        const start = now + index * 0.35;
+        const end = start + 0.25;
+
+        gain.gain.setValueAtTime(0.0001, start);
+        gain.gain.exponentialRampToValueAtTime(0.35, start + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, end);
+
+        oscillator.connect(gain);
+        gain.connect(audioContext.destination);
+
+        oscillator.start(start);
+        oscillator.stop(end);
+      });
+    }
+
+
+    // =========================
+    // Zufällige Zeit
+    // =========================
+
+    function getRandomTime(min, max) {
+
+      /*
+        Math.random() erzeugt eine Zahl zwischen 0 und 1.
+
+        Beispiel:
+        min = 25
+        max = 45
+
+        Ergebnis:
+        irgendeine Zeit zwischen 25 und 45 Minuten.
+      */
+
+      return min + Math.random() * (max - min);
+    }
+
+
+    // =========================
+    // Timer starten
+    // =========================
+
+    function startTimer() {
+
+      const min = Number(minInput.value);
+      const max = Number(maxInput.value);
+
+      // Eingaben überprüfen
+      if (!Number.isFinite(min) || !Number.isFinite(max)) {
+        errorElement.textContent = "Bitte gültige Zeiten eingeben.";
+        return;
+      }
+
+      if (min < 1) {
+        errorElement.textContent = "Die Mindestzeit muss mindestens 1 Minute sein.";
+        return;
+      }
+
+      if (max < min) {
+        errorElement.textContent =
+          "Die Maximum-Zeit muss größer oder gleich der Minimum-Zeit sein.";
+        return;
+      }
+
+      if (max > 1440) {
+        errorElement.textContent =
+          "Die maximale Zeit beträgt 1440 Minuten.";
+        return;
+      }
+
+      errorElement.textContent = "";
+
+      // Audio initialisieren
+      initializeAudio();
+
+      // Zufällige Dauer bestimmen
+      const randomMinutes = getRandomTime(min, max);
+
+      const durationMilliseconds =
+        randomMinutes * 60 * 1000;
+
+      startTime = Date.now();
+
+      targetTime =
+        startTime + durationMilliseconds;
+
+      // UI wechseln
+      setup.style.display = "none";
+      finished.style.display = "none";
+      running.style.display = "block";
+
+      /*
+        Wir zählen NICHT einfach jede Sekunde herunter.
+
+        Stattdessen überprüfen wir anhand von Date.now(),
+        ob der Zielzeitpunkt erreicht wurde.
+
+        Dadurch ist der Timer robuster, wenn der Browser
+        den Tab im Hintergrund drosselt.
+      */
+
+      timerId = setInterval(checkTimer, 1000);
+    }
+
+
+    // =========================
+    // Timer überprüfen
+    // =========================
+
+    function checkTimer() {
+
+      const now = Date.now();
+
+      if (now >= targetTime) {
+        finishTimer();
+      }
+    }
+
+
+    // =========================
+    // Timer beenden
+    // =========================
+
+    function finishTimer() {
+
+      if (timerId !== null) {
+        clearInterval(timerId);
+        timerId = null;
+      }
+
+      const elapsedMilliseconds =
+        Date.now() - startTime;
+
+      const elapsedMinutes =
+        Math.round(elapsedMilliseconds / 60000);
+
+      // Alarm abspielen
+      playAlarm();
+
+      // Ergebnis anzeigen
+      resultText.textContent =
+        `Du hast ${elapsedMinutes} Minuten fokussiert.`;
+
+      running.style.display = "none";
+      finished.style.display = "block";
+    }
+
+
+    // =========================
+    // Timer manuell stoppen
+    // =========================
+
+    function stopTimer() {
+
+      if (timerId !== null) {
+        clearInterval(timerId);
+        timerId = null;
+      }
+
+      startTime = null;
+      targetTime = null;
+
+      running.style.display = "none";
+      setup.style.display = "block";
+    }
+
+
+    // =========================
+    // Neuer Timer
+    // =========================
+
+    function restartTimer() {
+
+      finished.style.display = "none";
+      setup.style.display = "block";
+    }
+
+
+    // =========================
+    // Event Listener
+    // =========================
+
+    startButton.addEventListener("click", startTimer);
+
+    stopButton.addEventListener("click", stopTimer);
+
+    restartButton.addEventListener("click", restartTimer);
+
+  </script>
+
+</body>
+</html>
