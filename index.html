@@ -1,54 +1,694 @@
 <!DOCTYPE html>
+
 <html lang="de">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web Tools</title>
-    <style>
-        /* Ein klein wenig Styling, damit es direkt ordentlich aussieht */
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            line-height: 1.6;
-            max-width: 800px;
-            margin: 40px auto;
-            padding: 0 20px;
-            color: #333;
+
+<title>Web Tools</title>
+
+<style>
+    * {
+        box-sizing: border-box;
+    }
+
+    :root {
+        --bg: #f6f7f9;
+        --card: #ffffff;
+        --border: #e2e5e9;
+        --border-hover: #cbd0d6;
+        --text: #20242a;
+        --muted: #737a84;
+        --accent: #2563eb;
+        --accent-bg: #eef4ff;
+    }
+
+    body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+
+        font-family:
+            -apple-system,
+            BlinkMacSystemFont,
+            "Segoe UI",
+            Roboto,
+            Helvetica,
+            Arial,
+            sans-serif;
+    }
+
+    .container {
+        width: min(1050px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 42px 0 60px;
+    }
+
+    /* HEADER */
+
+    header {
+        margin-bottom: 35px;
+    }
+
+    .title-row {
+        display: flex;
+        align-items: baseline;
+        gap: 14px;
+    }
+
+    h1 {
+        margin: 0;
+        font-size: 2.3rem;
+        letter-spacing: -0.04em;
+    }
+
+    .subtitle {
+        margin: 7px 0 22px;
+        color: var(--muted);
+    }
+
+    /* SEARCH */
+
+    .search {
+        position: relative;
+    }
+
+    .search input {
+        width: 100%;
+        height: 46px;
+
+        padding: 0 16px;
+
+        border: 1px solid var(--border);
+        border-radius: 9px;
+
+        background: var(--card);
+        color: var(--text);
+
+        font-size: 0.95rem;
+        outline: none;
+
+        transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    .search input:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
+    }
+
+    /* CATEGORIES */
+
+    .category {
+        margin-bottom: 34px;
+    }
+
+    .category-header {
+        display: flex;
+        align-items: center;
+
+        margin-bottom: 11px;
+        padding-bottom: 8px;
+
+        border-bottom: 1px solid var(--border);
+    }
+
+    .category-title {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+    }
+
+    .category-icon {
+        font-size: 1.1rem;
+    }
+
+    .category h2 {
+        margin: 0;
+
+        font-size: 0.95rem;
+        font-weight: 700;
+
+        letter-spacing: 0.02em;
+    }
+
+    .category-description {
+        margin-left: 12px;
+
+        color: var(--muted);
+        font-size: 0.8rem;
+    }
+
+    /* TOOL GRID */
+
+    .grid {
+        display: grid;
+
+        grid-template-columns:
+            repeat(4, minmax(0, 1fr));
+
+        gap: 9px;
+    }
+
+    /* TOOL */
+
+    .tool {
+        display: grid;
+
+        grid-template-columns: 38px 1fr 18px;
+        align-items: center;
+
+        min-height: 72px;
+        padding: 11px 13px;
+
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 9px;
+
+        color: var(--text);
+        text-decoration: none;
+
+        transition:
+            background 0.15s,
+            border-color 0.15s,
+            transform 0.15s;
+    }
+
+    .tool:hover {
+        background: #fafbfc;
+        border-color: var(--border-hover);
+        transform: translateY(-1px);
+    }
+
+    .tool-icon {
+        width: 32px;
+        height: 32px;
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        border-radius: 7px;
+
+        background: #f1f3f5;
+
+        font-size: 1rem;
+    }
+
+    .tool-name {
+        font-size: 0.88rem;
+        font-weight: 600;
+
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .tool-description {
+        margin-top: 2px;
+
+        color: var(--muted);
+        font-size: 0.73rem;
+
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .arrow {
+        color: #a1a7af;
+        font-size: 0.9rem;
+
+        transition: color 0.15s, transform 0.15s;
+    }
+
+    .tool:hover .arrow {
+        color: var(--accent);
+        transform: translateX(2px);
+    }
+
+    /* CONVERTER */
+
+    .converter .tool {
+        border-color: #d9e5ff;
+    }
+
+    .converter .tool:hover {
+        border-color: #a9c5ff;
+    }
+
+    .converter .tool-icon {
+        background: var(--accent-bg);
+    }
+
+    /* EMPTY */
+
+    .no-results {
+        display: none;
+
+        padding: 30px;
+
+        text-align: center;
+        color: var(--muted);
+
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 9px;
+    }
+
+    /* FOOTER */
+
+    footer {
+        margin-top: 45px;
+        padding-top: 18px;
+
+        border-top: 1px solid var(--border);
+
+        color: var(--muted);
+        font-size: 0.75rem;
+        text-align: center;
+    }
+
+    /* TABLET */
+
+    @media (max-width: 850px) {
+        .grid {
+            grid-template-columns:
+                repeat(3, minmax(0, 1fr));
         }
+    }
+
+    /* MOBILE */
+
+    @media (max-width: 620px) {
+
+        .container {
+            width: min(100% - 22px, 1050px);
+            padding-top: 28px;
+        }
+
         h1 {
-            border-bottom: 1px solid #eaecef;
-            padding-bottom: 0.3em;
+            font-size: 1.9rem;
         }
-        ul {
-            list-style-type: none;
-            padding-left: 0;
+
+        .grid {
+            grid-template-columns:
+                repeat(2, minmax(0, 1fr));
         }
-        li {
-            margin-bottom: 12px;
+
+        .category-description {
+            display: none;
         }
-        a {
-            color: #0366d6;
-            text-decoration: none;
-            font-size: 1.1em;
+
+        .tool {
+            grid-template-columns: 34px 1fr;
+
+            min-height: 68px;
         }
-        a:hover {
-            text-decoration: underline;
+
+        .arrow {
+            display: none;
         }
-    </style>
+
+        .tool-description {
+            font-size: 0.7rem;
+        }
+    }
+
+    @media (max-width: 390px) {
+        .grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+
 </head>
+
 <body>
 
-    <h1>Web Tools</h1>
+<div class="container">
 
-    <ul>
-        <li><a href="Tiles%20Generator/index.html">Tiles Generator öffnen</a></li>
-        <li><a href="Flowchart%20Mermaid%20Creator/index.html">Flowchart Mermaid Creator</a></li>
-        <li><a href="epub%20reader/index.html">epub reader</a></li>
-        <li><a href="QR%20Code%20Generator/index.html">QR-Code generator</a></li>
-        <li><a href="Audio%20Converter/index.html">Audio Converter</a></li>
-        <li><a href="UnTimer/index.html">UnTimer</a></li>
-        <li><a href="WebRTC/DataTransfer/index.html">DataTransfer (WebRTC)</a></li>
-        <li><a href="WebRTC/PeerCall/index.html">PeerCall (WebRTC)</a></li>
-    </ul>
+
+<header>
+
+    <div class="title-row">
+        <h1>Web Tools</h1>
+    </div>
+
+    <div class="subtitle">
+        Meine kleinen Werkzeuge für den Alltag.
+    </div>
+
+    <div class="search">
+        <input
+            type="search"
+            id="search"
+            placeholder="🔍︎  Tool suchen..."
+            autocomplete="off"
+        >
+    </div>
+
+</header>
+
+
+<!-- CONVERTER -->
+
+<section class="category converter">
+
+    <div class="category-header">
+
+        <div class="category-title">
+            <span class="category-icon"><svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#000000"><path d="M212-239q-43-48-67.5-110T120-480q0-150 105-255t255-105v-80l200 150-200 150v-80q-91 0-155.5 64.5T260-480q0 46 17.5 86t47.5 70l-113 85ZM480-40 280-190l200-150v80q91 0 155.5-64.5T700-480q0-46-17.5-86T635-636l113-85q43 48 67.5 110T840-480q0 150-105 255T480-120v80Z"/></svg></span>
+            <h2>CONVERTER</h2>
+        </div>
+
+        <span class="category-description">
+            Dateien und Formate umwandeln
+        </span>
+
+    </div>
+
+    <div class="grid">
+
+        <a
+            class="tool"
+            href="Audio%20Converter/index.html"
+            data-search="audio converter musik mp3 wav audio"
+        >
+            <div class="tool-icon">🎵</div>
+
+            <div>
+                <div class="tool-name">
+                    Audio Converter
+                </div>
+
+                <div class="tool-description">
+                    Audioformate konvertieren
+                </div>
+            </div>
+
+            <span class="arrow">→</span>
+        </a>
+
+    </div>
+
+</section>
+
+
+<!-- NETZWERK -->
+
+<section class="category">
+
+    <div class="category-header">
+
+        <div class="category-title">
+            <span class="category-icon"><svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#000000"><path d="m109-531-85-85q92-89 210-136.5T480-800q128 0 246 47.5T936-616l-85 85q-75-72-171-110.5T480-680q-104 0-200 38.5T109-531Zm169 169-84-84q59-55 132.5-84.5T480-560q80 0 153.5 29.5T766-446l-84 84q-42-38-93.5-58T480-440q-57 0-108.5 20T278-362Zm145.5 178.5Q400-207 400-240t23.5-56.5Q447-320 480-320t56.5 23.5Q560-273 560-240t-23.5 56.5Q513-160 480-160t-56.5-23.5Z"/></svg></span>
+            <h2>NETZWERK & KOMMUNIKATION</h2>
+        </div>
+
+        <span class="category-description">
+            Direkte Verbindungen
+        </span>
+
+    </div>
+
+    <div class="grid">
+
+        <a
+            class="tool"
+            href="WebRTC/DataTransfer/index.html"
+            data-search="datatransfer webrtc dateien transfer p2p"
+        >
+            <div class="tool-icon">📤</div>
+
+            <div>
+                <div class="tool-name">
+                    DataTransfer
+                </div>
+
+                <div class="tool-description">
+                    Dateien per WebRTC senden
+                </div>
+            </div>
+
+            <span class="arrow">→</span>
+        </a>
+
+
+        <a
+            class="tool"
+            href="WebRTC/PeerCall/index.html"
+            data-search="peercall webrtc video audio call telefon"
+        >
+            <div class="tool-icon">📞</div>
+
+            <div>
+                <div class="tool-name">
+                    PeerCall
+                </div>
+
+                <div class="tool-description">
+                    Audio- & Videoanrufe
+                </div>
+            </div>
+
+            <span class="arrow">→</span>
+        </a>
+
+    </div>
+
+</section>
+
+
+<!-- UTILITIES -->
+
+<section class="category">
+
+    <div class="category-header">
+
+        <div class="category-title">
+            <span class="category-icon"><svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#000000"><path d="M756-120 537-339l84-84 219 219-84 84Zm-552 0-84-84 276-276-68-68-28 28-51-51v82l-28 28-121-121 28-28h82l-50-50 142-142q20-20 43-29t47-9q24 0 47 9t43 29l-92 92 50 50-28 28 68 68 90-90q-4-11-6.5-23t-2.5-24q0-59 40.5-99.5T701-841q15 0 28.5 3t27.5 9l-99 99 72 72 99-99q7 14 9.5 27.5T841-701q0 59-40.5 99.5T701-561q-12 0-24-2t-23-7L204-120Z"/></svg></span>
+            <h2>UTILITIES</h2>
+        </div>
+
+        <span class="category-description">
+            Praktische Helfer
+        </span>
+
+    </div>
+
+    <div class="grid">
+
+        <a
+            class="tool"
+            href="UnTimer/index.html"
+            data-search="untimer timer zeit countdown stoppuhr"
+        >
+            <div class="tool-icon">⏱️</div>
+
+            <div>
+                <div class="tool-name">
+                    UnTimer
+                </div>
+
+                <div class="tool-description">
+                    Timer & Zeitmessung
+                </div>
+            </div>
+
+            <span class="arrow">→</span>
+        </a>
+
+    </div>
+
+</section>
+
+
+<!-- GENERATOREN -->
+
+<section class="category">
+
+    <div class="category-header">
+
+        <div class="category-title">
+            <span class="category-icon"><svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#000000"><path d="M140-254.31q0-12.92 8-22.38 8-9.46 20.31-9.46 6.46 0 12.42 1.92t11.42 5.77q11.47 6.46 23.12 10.54 11.65 4.08 24.73 4.08 39.92 0 67.65-28.12 27.74-28.12 27.74-68.04 0-39.54-27.93-67.08-27.92-27.54-67.46-27.54-12.31 0-24 3.46-11.69 3.47-21.54 10.39-5.61 3.46-12.46 5.19-6.85 1.73-13.69 1.73-12.31 0-20.31-9.07-8-9.08-8-22v-119.69q0-14.7 10.35-25.04Q160.69-620 175.39-620h162.3q3.08 0 3.85-3.08.77-3.07-2.31-6.15-9.61-15.77-14.42-33.85Q320-681.15 320-700q0-66.92 46.54-113.46Q413.08-860 480-860q66.92 0 113.46 46.54Q640-766.92 640-700q0 18.85-4.81 36.92-4.81 18.08-14.42 33.85-3.08 3.08-2.31 6.15.77 3.08 3.85 3.08h162.3q14.7 0 25.04 10.35Q820-599.31 820-584.61v111.22q0 15.85-7.66 28.31-7.65 12.46-23.11 12.46-7.23 0-13.23-2.15t-12-6q-9.46-6.92-20.77-10.39-11.31-3.46-23.23-3.46-39.54 0-67.46 27.54-27.93 27.54-27.93 67.08 0 39.92 27.74 68.04 27.73 28.12 67.65 28.12 12.69 0 24.96-3.47 12.27-3.46 22.12-11.15 4.61-3.85 9.96-6.38 5.34-2.54 12.19-2.54 13.54 0 22.15 9.77 8.62 9.77 8.62 23.3v118.92q0 14.7-10.35 25.04Q799.31-100 784.61-100H175.39q-14.7 0-25.04-10.35Q140-120.69 140-135.39v-118.92Z"/></svg></span>
+            <h2>GENERATOREN</h2>
+        </div>
+
+        <span class="category-description">
+            Inhalte erstellen
+        </span>
+
+    </div>
+
+    <div class="grid">
+
+        <a
+            class="tool"
+            href="Tiles%20Generator/index.html"
+            data-search="tiles generator kacheln muster pattern"
+        >
+            <div class="tool-icon">🧱</div>
+
+            <div>
+                <div class="tool-name">
+                    Tiles Generator
+                </div>
+
+                <div class="tool-description">
+                    Tiles & Muster erstellen
+                </div>
+            </div>
+
+            <span class="arrow">→</span>
+        </a>
+
+
+        <a
+            class="tool"
+            href="Flowchart%20Mermaid%20Creator/index.html"
+            data-search="flowchart mermaid creator diagramm"
+        >
+            <div class="tool-icon">📊</div>
+
+            <div>
+                <div class="tool-name">
+                    Flowchart Creator
+                </div>
+
+                <div class="tool-description">
+                    Mermaid-Diagramme erstellen
+                </div>
+            </div>
+
+            <span class="arrow">→</span>
+        </a>
+
+
+        <a
+            class="tool"
+            href="QR%20Code%20Generator/index.html"
+            data-search="qr code generator qr-code"
+        >
+            <div class="tool-icon">▦</div>
+
+            <div>
+                <div class="tool-name">
+                    QR-Code Generator
+                </div>
+
+                <div class="tool-description">
+                    QR-Codes erstellen
+                </div>
+            </div>
+
+            <span class="arrow">→</span>
+        </a>
+
+    </div>
+
+</section>
+
+
+<!-- LESEN & DATEIEN -->
+
+<section class="category">
+
+    <div class="category-header">
+
+        <div class="category-title">
+            <span class="category-icon"><svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#000000"><path d="M560-564v-68q33-14 67.5-21t72.5-7q26 0 51 4t49 10v64q-24-9-48.5-13.5T700-600q-38 0-73 9.5T560-564Zm0 220v-68q33-14 67.5-21t72.5-7q26 0 51 4t49 10v64q-24-9-48.5-13.5T700-380q-38 0-73 9t-67 27Zm0-110v-68q33-14 67.5-21t72.5-7q26 0 51 4t49 10v64q-24-9-48.5-13.5T700-490q-38 0-73 9.5T560-454Zm-40 176q44-21 88.5-31.5T700-320q36 0 70.5 6t69.5 18v-396q-33-14-68.5-21t-71.5-7q-47 0-93 12t-87 36v394Zm-40 118q-48-38-104-59t-116-21q-42 0-82.5 11T100-198q-21 11-40.5-1T40-234v-482q0-11 5.5-21T62-752q47-23 96.5-35.5T260-800q58 0 113.5 15T480-740q51-30 106.5-45T700-800q52 0 101.5 12.5T898-752q11 5 16.5 15t5.5 21v482q0 23-19.5 35t-40.5 1q-37-20-77.5-31T700-240q-60 0-116 21t-104 59Z"/></svg></span>
+            <h2>DATEIEN ÖFFNEN</h2>
+        </div>
+
+        <span class="category-description">
+            Lesen & betrachten
+        </span>
+
+    </div>
+
+    <div class="grid">
+
+        <a
+            class="tool"
+            href="epub%20reader/index.html"
+            data-search="epub reader ebook buch lesen"
+        >
+            <div class="tool-icon">📖</div>
+
+            <div>
+                <div class="tool-name">
+                    EPUB Reader
+                </div>
+
+                <div class="tool-description">
+                    EPUB-Dateien lesen
+                </div>
+            </div>
+
+            <span class="arrow">→</span>
+        </a>
+
+    </div>
+
+</section>
+
+
+<div class="no-results" id="noResults">
+    Kein Tool gefunden.
+</div>
+
+
+<footer>
+    Web Tools
+</footer>
+
+</div>
+
+<script>
+    const search = document.getElementById("search");
+    const categories = document.querySelectorAll(".category");
+    const noResults = document.getElementById("noResults");
+
+    search.addEventListener("input", () => {
+
+        const query = search.value
+            .toLowerCase()
+            .trim();
+
+        let visibleTools = 0;
+
+        document.querySelectorAll(".tool").forEach(tool => {
+
+            const text = tool.dataset.search.toLowerCase();
+
+            const visible =
+                text.includes(query);
+
+            tool.style.display =
+                visible ? "grid" : "none";
+
+            if (visible) {
+                visibleTools++;
+            }
+        });
+
+        categories.forEach(category => {
+
+            const hasVisibleTool =
+                [...category.querySelectorAll(".tool")]
+                    .some(tool =>
+                        tool.style.display !== "none"
+                    );
+
+            category.style.display =
+                hasVisibleTool ? "" : "none";
+        });
+
+        noResults.style.display =
+            visibleTools === 0 ? "block" : "none";
+    });
+</script>
 
 </body>
 </html>
