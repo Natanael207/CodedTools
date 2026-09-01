@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Image Converter</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<main class="app">
+
+    <!-- Header -->
+    <header class="header">
+
+        <div class="brand">
+            <div class="brand-icon">◇</div>
+
+            <div>
+                <h1>Image Converter</h1>
+                <p>Convert. Modify. Done.</p>
+            </div>
+        </div>
+
+        <div class="local-badge">
+            <span class="status-dot"></span>
+            Verarbeitung im Browser
+        </div>
+
+    </header>
+
+
+    <!-- Main Card -->
+    <section class="card">
+
+        <!-- Drop Zone -->
+        <div
+            id="dropZone"
+            class="drop-zone"
+        >
+
+            <input
+                id="fileInput"
+                type="file"
+                accept="image/*"
+                multiple
+                hidden
+            >
+
+            <div class="upload-icon">
+                ↑
+            </div>
+
+            <h2>Bilder hierher ziehen</h2>
+
+            <p>
+                oder
+                <button
+                    id="selectFilesButton"
+                    class="link-button"
+                    type="button"
+                >
+                    Dateien auswählen
+                </button>
+            </p>
+
+            <small>
+                PNG · JPG · JPEG · WebP · AVIF · BMP · GIF · TIFF
+            </small>
+
+        </div>
+
+
+        <!-- Folder -->
+        <div class="folder-row">
+
+            <input
+                id="folderInput"
+                type="file"
+                multiple
+                hidden
+                webkitdirectory
+                directory
+            >
+
+            <button
+                id="folderButton"
+                class="secondary-button"
+                type="button"
+            >
+                📁 Ganzen Ordner auswählen
+            </button>
+
+            <button
+                id="clearButton"
+                class="clear-button"
+                type="button"
+                hidden
+            >
+                Alle entfernen
+            </button>
+
+        </div>
+
+
+        <!-- Files -->
+        <section
+            id="fileSection"
+            hidden
+        >
+
+            <div class="section-title">
+
+                <div>
+                    <span>DATEIEN</span>
+
+                    <h3 id="fileCount">
+                        0 Dateien ausgewählt
+                    </h3>
+                </div>
+
+            </div>
+
+            <div
+                id="fileList"
+                class="file-list"
+            ></div>
+
+        </section>
+
+
+        <!-- Options -->
+        <div class="options">
+
+            <!-- Modifiers -->
+            <div class="option-card">
+
+                <div class="option-heading">
+
+                    <div>
+                        <span>MODIFIKATOREN</span>
+
+                        <h3>
+                            Bild verändern
+                        </h3>
+                    </div>
+
+                    <div class="option-icon">
+                        ✦
+                    </div>
+
+                </div>
+
+                <button
+                    id="modifierButton"
+                    class="modifier-button"
+                    type="button"
+                >
+                    <strong>＋</strong>
+                    Modifikator hinzufügen
+                </button>
+
+                <div class="coming-soon">
+
+                    <b>Bald verfügbar</b>
+
+                    <span>
+                        Comic, Ölfarben, Schwarzweiß,
+                        Blur & mehr
+                    </span>
+
+                </div>
+
+            </div>
+
+
+            <!-- Format -->
+            <div class="option-card">
+
+                <div class="option-heading">
+
+                    <div>
+                        <span>AUSGABEFORMAT</span>
+
+                        <h3>
+                            Format auswählen
+                        </h3>
+                    </div>
+
+                    <div class="option-icon">
+                        ◇
+                    </div>
+
+                </div>
+
+                <select
+                    id="formatSelect"
+                    class="format-select"
+                >
+                    <option value="png">
+                        PNG (.png)
+                    </option>
+
+                    <option value="jpg">
+                        JPEG (.jpg)
+                    </option>
+
+                    <option value="webp">
+                        WebP (.webp)
+                    </option>
+
+                    <option value="avif">
+                        AVIF (.avif)
+                    </option>
+
+                    <option value="bmp">
+                        BMP (.bmp)
+                    </option>
+
+                    <option value="tiff">
+                        TIFF (.tiff)
+                    </option>
+                </select>
+
+                <p class="format-description">
+                    Alle ausgewählten Bilder werden
+                    in dieses Format konvertiert.
+                </p>
+
+            </div>
+
+        </div>
+
+
+        <!-- Status -->
+        <div
+            id="status"
+            class="status"
+            hidden
+        ></div>
+
+
+        <!-- Convert -->
+        <button
+            id="convertButton"
+            class="convert-button"
+            type="button"
+            disabled
+        >
+            <span>↓</span>
+            <strong>Bild konvertieren</strong>
+        </button>
+
+
+        <div class="privacy">
+            <span></span>
+            Deine Bilder werden nicht auf einen Server hochgeladen.
+        </div>
+
+    </section>
+
+
+    <footer>
+        <span>Image Converter</span>
+        <span>Powered by FFmpeg WebAssembly</span>
+    </footer>
+
+</main>
+
+
+<script src="./ffmpeg/ffmpeg.js"></script>
+<script src="./libs/jszip.min.js"></script>
+<script src="./app.js"></script>
+
+</body>
+</html>
