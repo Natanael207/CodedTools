@@ -82,7 +82,6 @@ const outputMimeTypes = {
     png: "image/png",
     jpg: "image/jpeg",
     webp: "image/webp",
-    avif: "image/avif",
     bmp: "image/bmp",
     tiff: "image/tiff",
     ico: "image/x-icon",
@@ -98,14 +97,15 @@ const supportedExtensions = new Set([
     "webp",
     "gif",
     "bmp",
-    "avif",
     "tif",
     "tiff",
     "ico",
     "tga",
     "ppm",
     "pgm",
-    "pbm"
+    "pbm",
+    "heic",
+    "heif"
 ]);
 
 
@@ -588,6 +588,79 @@ function updateConvertButton() {
 
 
 /* ============================================================
+   HEIC/HEIF KONVERTIERUNG
+   ============================================================ */
+
+let libHeif = null;
+
+async function loadLibHeif() {
+
+    if (libHeif) {
+        return true;
+    }
+
+    if (typeof window.libheif === "undefined") {
+        console.warn(
+            "libheif.js wurde nicht gefunden. HEIC/HEIF-Support nicht verfügbar."
+        );
+        return false;
+    }
+
+    try {
+        libHeif = window.libheif;
+        console.log("libheif erfolgreich geladen.");
+        return true;
+    } catch (error) {
+        console.error("libheif Ladefehler:", error);
+        return false;
+    }
+
+}
+
+async function convertHeicToBlob(file) {
+
+    const loaded = await loadLibHeif();
+
+    if (!loaded) {
+        throw new Error(
+            "libheif konnte nicht geladen werden."
+        );
+    }
+
+    const arrayBuffer = await file.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
+
+    try {
+        const imageArray = await libHeif.convert({
+            blob: file,
+            toFormat: "PNG"
+        });
+
+        if (
+            imageArray &&
+            imageArray.length > 0
+        ) {
+            const blob = imageArray[0];
+            return blob;
+        }
+
+        throw new Error(
+            "Keine gültige Ausgabe von libheif"
+        );
+
+    } catch (error) {
+        console.error(
+            "HEIC Konvertierungsfehler:",
+            error
+        );
+        throw new Error(
+            `HEIC/HEIF konnte nicht konvertiert werden: ${error.message}`
+        );
+    }
+
+}
+
+/* ============================================================
    FFMPEG LADEN
    ============================================================ */
 
@@ -880,9 +953,114 @@ async function convertSingleFile(
     outputFormat
 ) {
 
-    const inputExtension =
+    let inputExtension =
         getExtension(file.name) || "img";
 
+    let fileBlob = file;
+
+    /*
+     * HEIC/HEIF Eingabe konvertieren
+     */
+
+    if (
+        inputExtension === "heic" ||
+        inputExtension === "heif"
+    ) {
+
+        console.log(
+            "HEIC/HEIF erkannt, konvertiere zu PNG..."
+        );
+
+        try {
+
+            fileBlob = await convertHeicToBlob(
+                file
+            );
+
+            inputExtension = "png";
+
+            console.log(
+                "HEIC/HEIF erfolgreich konvertiert"
+            );
+
+        } catch (error) {
+
+            showError(
+                error.message
+            );
+
+            throw error;
+
+        }
+
+    }
+
+    /*
+     * HEIC/HEIF AUSGABE
+     *
+     * Direkt mit libheif enkodieren,
+     * nicht über FFmpeg
+     */
+
+    if (
+        outputFormat === "heic" ||
+        outputFormat === "heif"
+    ) {
+
+        console.log(
+            `Enkodiere zu ${outputFormat.toUpperCase()}...`
+        );
+
+        try {
+
+            const loaded =
+                await loadLibHeif();
+
+            if (!loaded) {
+                throw new Error(
+                    "libheif konnte nicht geladen werden"
+                );
+            }
+
+            const heicBlob =
+                await window.libheif.encode({
+                    blob: fileBlob,
+                    format: outputFormat,
+                    quality: 90
+                });
+
+            return {
+
+                name:
+                    `${removeExtension(
+                        file.name
+                    )}.${outputFormat}`,
+
+                blob:
+                    heicBlob
+
+            };
+
+        } catch (error) {
+
+            console.error(
+                `HEIC/HEIF Enkodierungsfehler:`,
+                error
+            );
+
+            showError(
+                error.message
+            );
+
+            throw error;
+
+        }
+
+    }
+
+    /*
+     * NORMALE AUSGABEFORMATE (via FFmpeg)
+     */
 
     const inputName =
         `input_${index}.${inputExtension}`;
@@ -904,7 +1082,7 @@ async function convertSingleFile(
 
     const data =
         await fileToUint8Array(
-            file
+            fileBlob
         );
 
 
