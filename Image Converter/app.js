@@ -84,7 +84,8 @@ const outputMimeTypes = {
     webp: "image/webp",
     avif: "image/avif",
     bmp: "image/bmp",
-    tiff: "image/tiff"
+    tiff: "image/tiff",
+    ico: "image/x-icon"
 };
 
 
