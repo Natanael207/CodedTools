@@ -82,12 +82,9 @@ const outputMimeTypes = {
     png: "image/png",
     jpg: "image/jpeg",
     webp: "image/webp",
-    avif: "image/avif",
     bmp: "image/bmp",
     tiff: "image/tiff",
-    ico: "image/x-icon",
-    heic: "image/heic",
-    heif: "image/heif"
+    ico: "image/x-icon"
 };
 
 
@@ -98,7 +95,6 @@ const supportedExtensions = new Set([
     "webp",
     "gif",
     "bmp",
-    "avif",
     "tif",
     "tiff",
     "ico",
