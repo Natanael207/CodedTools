@@ -85,7 +85,9 @@ const outputMimeTypes = {
     avif: "image/avif",
     bmp: "image/bmp",
     tiff: "image/tiff",
-    ico: "image/x-icon"
+    ico: "image/x-icon",
+    heic: "image/heic",
+    heif: "image/heif"
 };
 
 
