@@ -1,0 +1,4291 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yuh Ausgaben Dashboard</title>
+
+    <script src=".\lib\chart.umd.min.js"></script>
+
+    <style>
+        :root {
+            --bg: #f4f6f8;
+            --card: #fff;
+            --text: #17202a;
+            --muted: #718096;
+            --border: #e2e8f0;
+            --accent: #111827;
+            --accent-soft: #eef2ff;
+            --danger: #dc2626;
+            --success: #059669;
+            --shadow: 0 8px 24px rgba(15, 23, 42, .07);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        button,
+        select,
+        input {
+            font: inherit;
+        }
+
+        .app {
+            width: 100%;
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 18px;
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 18px;
+        }
+
+        .title-wrap h1 {
+            margin: 0;
+            font-size: 26px;
+        }
+
+        .title-wrap p {
+            margin: 5px 0 0;
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .icon-btn,
+        .primary-btn,
+        .secondary-btn {
+            border: 1px solid var(--border);
+            background: #fff;
+            border-radius: 10px;
+            cursor: pointer;
+            padding: 9px 13px;
+        }
+
+        .icon-btn {
+            width: 42px;
+            height: 42px;
+            padding: 0;
+            font-size: 19px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            color: var(--text);
+        }
+
+        .upload-card,
+        .kpi,
+        .chart-card,
+        .settings-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+        }
+
+        .upload-card {
+            padding: 18px;
+            margin-bottom: 16px;
+        }
+
+        .upload-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .status {
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .status.success {
+            color: var(--success);
+        }
+
+        .status.error {
+            color: var(--danger);
+        }
+
+        .filters {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(140px, 1fr));
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        .filter-box {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 10px;
+        }
+
+        .filter-box label {
+            display: block;
+            font-size: 11px;
+            color: var(--muted);
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: .04em;
+        }
+
+        .filter-box select {
+            width: 100%;
+            border: 0;
+            outline: 0;
+            background: transparent;
+            color: var(--text);
+            cursor: pointer;
+        }
+
+        .active-filters {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 7px;
+            margin-bottom: 16px;
+        }
+
+        .filter-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            border-radius: 999px;
+            padding: 6px 10px;
+            background: var(--accent-soft);
+            color: #3730a3;
+            font-size: 12px;
+            border: 0;
+        }
+
+        .filter-chip button {
+            border: 0;
+            background: transparent;
+            cursor: pointer;
+            color: inherit;
+            font-weight: bold;
+            padding: 0;
+        }
+
+        .filter-chip.reset {
+            background: #fff;
+            border: 1px solid var(--border);
+            color: var(--text);
+            cursor: pointer;
+        }
+
+        .kpis {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .kpi {
+            padding: 17px;
+        }
+
+        .kpi-label {
+            color: var(--muted);
+            font-size: 12px;
+            margin-bottom: 7px;
+        }
+
+        .kpi-value {
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .charts {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+        }
+
+        .chart-card {
+            padding: 16px;
+            min-width: 0;
+        }
+
+        .chart-card.full {
+            grid-column: 1 / -1;
+        }
+
+        .chart-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .chart-head h2 {
+            margin: 0;
+            font-size: 16px;
+        }
+
+        .chart-head span {
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 320px;
+        }
+
+        .largest-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .largest-controls input {
+            width: 65px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 7px 8px;
+        }
+
+        .expenses-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 390px;
+            overflow-y: auto;
+        }
+
+        .expense-row {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 12px;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: #fafafa;
+            cursor: pointer;
+            transition: .15s;
+        }
+
+        .expense-row:hover {
+            background: #f1f5f9;
+            transform: translateY(-1px);
+        }
+
+        .expense-main {
+            min-width: 0;
+        }
+
+        .expense-merchant {
+            font-weight: 600;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .expense-meta {
+            color: var(--muted);
+            font-size: 11px;
+            margin-top: 3px;
+        }
+
+        .expense-amount {
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .empty {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 180px;
+            color: var(--muted);
+            text-align: center;
+            padding: 20px;
+        }
+
+        .settings-page {
+            display: none;
+        }
+
+        .settings-page.active {
+            display: block;
+        }
+
+        #dashboardPage.hidden {
+            display: none;
+        }
+
+        .settings-card {
+            padding: 18px;
+        }
+
+        .settings-top {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 18px;
+        }
+
+        .settings-top h2 {
+            margin: 0;
+        }
+
+        .merchant-settings {
+            display: grid;
+            grid-template-columns: 1fr 220px 100px;
+            gap: 8px;
+            align-items: center;
+            padding: 9px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .merchant-name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .merchant-settings select {
+            width: 100%;
+            padding: 7px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: #fff;
+        }
+
+        @media (max-width: 1100px) {
+            .filters {
+                grid-template-columns: repeat(3, minmax(140px, 1fr));
+            }
+
+            .kpis {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 760px) {
+            .app {
+                padding: 10px;
+            }
+
+            .filters,
+            .charts {
+                grid-template-columns: 1fr;
+            }
+
+            .chart-card.full {
+                grid-column: auto;
+            }
+
+            .merchant-settings {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .kpis {
+                grid-template-columns: 1fr;
+            }
+
+            .chart-container {
+                height: 300px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="app">
+
+    <!-- DASHBOARD -->
+    <div id="dashboardPage">
+
+        <header>
+            <div class="title-wrap">
+                <h1>Yuh Ausgaben</h1>
+                <p>Deine Ausgaben übersichtlich analysiert</p>
+            </div>
+
+            <a href="#einstellungen"
+               id="settingsButton"
+               class="icon-btn"
+               title="Kategorien verwalten">
+                ⚙️
+            </a>
+        </header>
+
+        <section class="upload-card">
+            <div class="upload-row">
+                <input id="csvFile" type="file" accept=".csv,text/csv">
+
+                <button id="resetDataButton" class="secondary-btn">
+                    Daten zurücksetzen
+                </button>
+
+                <span id="status" class="status">
+                    Bitte Yuh-CSV auswählen.
+                </span>
+            </div>
+        </section>
+
+        <section class="filters">
+
+            <div class="filter-box">
+                <label for="monthFilter">Monat</label>
+                <select id="monthFilter">
+                    <option value="">Alle Monate</option>
+                </select>
+            </div>
+
+            <div class="filter-box">
+                <label for="dateFilter">Datum</label>
+                <select id="dateFilter">
+                    <option value="">Alle Daten</option>
+                </select>
+            </div>
+
+            <div class="filter-box">
+                <label for="categoryFilter">Kategorie</label>
+                <select id="categoryFilter">
+                    <option value="">Alle Kategorien</option>
+                </select>
+            </div>
+
+            <div class="filter-box">
+                <label for="merchantFilter">Händler</label>
+                <select id="merchantFilter">
+                    <option value="">Alle Händler</option>
+                </select>
+            </div>
+
+            <div class="filter-box">
+                <label for="currencyFilter">Währung</label>
+                <select id="currencyFilter">
+                    <option value="">Alle Währungen</option>
+                </select>
+            </div>
+
+        </section>
+
+        <div id="activeFilters" class="active-filters"></div>
+
+        <section class="kpis">
+
+            <div class="kpi">
+                <div class="kpi-label">Ausgaben</div>
+                <div id="kpiTotal" class="kpi-value">0.00 CHF</div>
+            </div>
+
+            <div class="kpi">
+                <div class="kpi-label">Transaktionen</div>
+                <div id="kpiTransactions" class="kpi-value">0</div>
+            </div>
+
+            <div class="kpi">
+                <div class="kpi-label">Durchschnitt</div>
+                <div id="kpiAverage" class="kpi-value">0.00 CHF</div>
+            </div>
+
+            <div class="kpi">
+                <div class="kpi-label">Händler</div>
+                <div id="kpiMerchants" class="kpi-value">0</div>
+            </div>
+
+        </section>
+
+        <section class="charts">
+
+            <div class="chart-card">
+
+                <div class="chart-head">
+                    <div>
+                        <h2>Ausgaben nach Kategorie</h2>
+                        <span>Klick = Filter + Highlight</span>
+                    </div>
+                </div>
+
+                <div class="chart-container">
+                    <canvas id="categoryChart"></canvas>
+                </div>
+
+            </div>
+
+            <div class="chart-card">
+
+                <div class="chart-head">
+                    <div>
+                        <h2>Ausgaben nach Händler</h2>
+                        <span>Andere Händler bleiben sichtbar</span>
+                    </div>
+                </div>
+
+                <div class="chart-container">
+                    <canvas id="merchantChart"></canvas>
+                </div>
+
+            </div>
+
+            <div class="chart-card full">
+
+                <div class="chart-head">
+                    <div>
+                        <h2>Ausgaben pro Monat</h2>
+                        <span>Alle Monate bleiben sichtbar</span>
+                    </div>
+                </div>
+
+                <div class="chart-container">
+                    <canvas id="monthlyChart"></canvas>
+                </div>
+
+            </div>
+
+            <div class="chart-card full">
+
+                <div class="chart-head">
+                    <div>
+                        <h2>Ausgaben im Zeitverlauf</h2>
+                        <span>Alle Tage bleiben sichtbar</span>
+                    </div>
+                </div>
+
+                <div class="chart-container">
+                    <canvas id="timelineChart"></canvas>
+                </div>
+
+            </div>
+
+            <div class="chart-card full">
+
+                <div class="chart-head">
+
+                    <div>
+                        <h2>Grösste Ausgaben</h2>
+
+                        <span>
+                            Erneuter Klick auf denselben Händler hebt den Filter wieder auf
+                        </span>
+                    </div>
+
+                    <div class="largest-controls">
+
+                        <label for="largestCount">
+                            Anzahl
+                        </label>
+
+                        <input
+                            id="largestCount"
+                            type="number"
+                            min="1"
+                            max="100"
+                            value="5">
+
+                    </div>
+
+                </div>
+
+                <div id="largestExpenses"
+                     class="expenses-list"></div>
+
+            </div>
+
+        </section>
+
+    </div>
+
+
+    <!-- SETTINGS -->
+    <div id="settingsPage"
+         class="settings-page">
+
+        <div class="settings-card">
+
+            <div class="settings-top">
+
+                <button id="backButton"
+                        class="secondary-btn">
+                    ← Dashboard
+                </button>
+
+                <h2>Kategorien verwalten</h2>
+
+            </div>
+
+            <p class="status">
+                Hier kannst du jedem Händler dauerhaft eine Kategorie zuweisen.
+                Die Zuordnung wird im Browser gespeichert.
+            </p>
+
+            <div id="merchantSettingsList"></div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<script>
+"use strict";
+
+
+/* =========================================================
+   KONFIGURATION
+========================================================= */
+
+const STORAGE_KEY =
+    "yuh_category_mapping_v4";
+
+
+const CATEGORIES = [
+    "Essen",
+    "Transport",
+    "Shopping",
+    "Abos",
+    "Reisen",
+    "Bargeld",
+    "Freizeit",
+    "Kirche",
+    "Sonstiges"
+];
+
+
+const COLORS = [
+    "#2563eb",
+    "#16a34a",
+    "#f59e0b",
+    "#dc2626",
+    "#9333ea",
+    "#0891b2",
+    "#ea580c",
+    "#4f46e5",
+    "#65a30d"
+];
+
+
+const charts = {
+    category: null,
+    merchant: null,
+    monthly: null,
+    timeline: null
+};
+
+
+let data = [];
+let settingsMerchants = [];
+let customMappings = {};
+
+
+/*
+  WICHTIG:
+
+  CHF ist die Standard-Währung.
+
+  Wenn der Benutzer bewusst "Alle Währungen"
+  auswählt, wird currency = "".
+*/
+
+const filters = {
+    month: "",
+    date: "",
+    category: "",
+    merchant: "",
+    currency: "CHF"
+};
+
+
+/* =========================================================
+   DOM
+========================================================= */
+
+const csvFile =
+    document.getElementById("csvFile");
+
+const statusEl =
+    document.getElementById("status");
+
+const monthFilter =
+    document.getElementById("monthFilter");
+
+const dateFilter =
+    document.getElementById("dateFilter");
+
+const categoryFilter =
+    document.getElementById("categoryFilter");
+
+const merchantFilter =
+    document.getElementById("merchantFilter");
+
+const currencyFilter =
+    document.getElementById("currencyFilter");
+
+const activeFiltersEl =
+    document.getElementById("activeFilters");
+
+const kpiTotal =
+    document.getElementById("kpiTotal");
+
+const kpiTransactions =
+    document.getElementById("kpiTransactions");
+
+const kpiAverage =
+    document.getElementById("kpiAverage");
+
+const kpiMerchants =
+    document.getElementById("kpiMerchants");
+
+const largestCount =
+    document.getElementById("largestCount");
+
+const largestExpenses =
+    document.getElementById("largestExpenses");
+
+const dashboardPage =
+    document.getElementById("dashboardPage");
+
+const settingsPage =
+    document.getElementById("settingsPage");
+
+const settingsButton =
+    document.getElementById("settingsButton");
+
+const backButton =
+    document.getElementById("backButton");
+
+const merchantSettingsList =
+    document.getElementById("merchantSettingsList");
+
+const resetDataButton =
+    document.getElementById("resetDataButton");
+
+
+/* =========================================================
+   LOCAL STORAGE
+========================================================= */
+
+function loadMappings() {
+
+    try {
+
+        const saved =
+            localStorage.getItem(STORAGE_KEY) ||
+            localStorage.getItem(
+                "yuh_category_mapping_v3"
+            ) ||
+            localStorage.getItem(
+                "yuh_category_mapping_v2"
+            );
+
+        if (saved) {
+            customMappings =
+                JSON.parse(saved) || {};
+        }
+
+    } catch {
+
+        customMappings = {};
+    }
+}
+
+
+function saveMappings() {
+
+    localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify(customMappings)
+    );
+}
+
+
+loadMappings();
+
+
+/* =========================================================
+   HILFSFUNKTIONEN
+========================================================= */
+
+function cleanValue(value) {
+
+    return String(value ?? "")
+        .replace(/^\uFEFF/, "")
+        .trim();
+}
+
+
+function normalizeHeader(value) {
+
+    return cleanValue(value)
+        .toUpperCase()
+        .replace(/\s+/g, " ");
+}
+
+
+function parseAmount(value) {
+
+    if (
+        value === null ||
+        value === undefined
+    ) {
+        return 0;
+    }
+
+    let s =
+        String(value)
+            .trim()
+            .replace(/\u00A0/g, "")
+            .replace(/'/g, "")
+            .replace(/\s/g, "")
+            .replace(
+                /CHF|EUR|USD|GBP/gi,
+                ""
+            );
+
+    if (!s) {
+        return 0;
+    }
+
+    if (
+        s.includes(",") &&
+        s.includes(".")
+    ) {
+
+        if (
+            s.lastIndexOf(",") >
+            s.lastIndexOf(".")
+        ) {
+
+            s = s
+                .replace(/\./g, "")
+                .replace(",", ".");
+
+        } else {
+
+            s = s.replace(/,/g, "");
+        }
+
+    } else if (
+        s.includes(",")
+    ) {
+
+        s = s.replace(",", ".");
+    }
+
+    const number =
+        Number(s);
+
+    return Number.isFinite(number)
+        ? number
+        : 0;
+}
+
+
+/*
+  ROBUSTE YUH-DATUMSERKENNUNG
+*/
+
+function parseDate(value) {
+
+    let raw =
+        cleanValue(value);
+
+    if (!raw) {
+
+        return {
+            date: null,
+            dateKey: "",
+            dateText: "",
+            month: ""
+        };
+    }
+
+
+    let match =
+        raw.match(
+            /(\d{1,2})[.\/](\d{1,2})[.\/](\d{4})/
+        );
+
+
+    if (match) {
+
+        const day =
+            Number(match[1]);
+
+        const month =
+            Number(match[2]);
+
+        const year =
+            Number(match[3]);
+
+
+        if (
+            day >= 1 &&
+            day <= 31 &&
+            month >= 1 &&
+            month <= 12 &&
+            year >= 2000
+        ) {
+
+            const date =
+                new Date(
+                    year,
+                    month - 1,
+                    day
+                );
+
+
+            if (
+                !Number.isNaN(
+                    date.getTime()
+                )
+            ) {
+
+                const dateKey =
+                    String(day)
+                        .padStart(2, "0") +
+                    "." +
+                    String(month)
+                        .padStart(2, "0") +
+                    "." +
+                    String(year);
+
+
+                const monthKey =
+                    String(year) +
+                    "-" +
+                    String(month)
+                        .padStart(2, "0");
+
+
+                return {
+                    date,
+                    dateKey,
+                    dateText: dateKey,
+                    month: monthKey
+                };
+            }
+        }
+    }
+
+
+    match =
+        raw.match(
+            /(\d{4})-(\d{1,2})-(\d{1,2})/
+        );
+
+
+    if (match) {
+
+        const year =
+            Number(match[1]);
+
+        const month =
+            Number(match[2]);
+
+        const day =
+            Number(match[3]);
+
+
+        const date =
+            new Date(
+                year,
+                month - 1,
+                day
+            );
+
+
+        if (
+            !Number.isNaN(
+                date.getTime()
+            )
+        ) {
+
+            const dateKey =
+                String(day)
+                    .padStart(2, "0") +
+                "." +
+                String(month)
+                    .padStart(2, "0") +
+                "." +
+                String(year);
+
+
+            return {
+                date,
+                dateKey,
+                dateText: dateKey,
+                month:
+                    String(year) +
+                    "-" +
+                    String(month)
+                        .padStart(2, "0")
+            };
+        }
+    }
+
+
+    return {
+        date: null,
+        dateKey: raw,
+        dateText: raw,
+        month: ""
+    };
+}
+
+
+function monthLabel(monthKey) {
+
+    const match =
+        String(monthKey)
+            .match(
+                /^(\d{4})-(\d{2})$/
+            );
+
+    if (!match) {
+        return monthKey;
+    }
+
+
+    const names = [
+        "Januar",
+        "Februar",
+        "März",
+        "April",
+        "Mai",
+        "Juni",
+        "Juli",
+        "August",
+        "September",
+        "Oktober",
+        "November",
+        "Dezember"
+    ];
+
+
+    return (
+        names[
+            Number(match[2]) - 1
+        ] +
+        " " +
+        match[1]
+    );
+}
+
+
+function formatMoney(
+    amount,
+    currency = "CHF"
+) {
+
+    try {
+
+        return new Intl.NumberFormat(
+            "de-CH",
+            {
+                style: "currency",
+                currency:
+                    currency || "CHF",
+                maximumFractionDigits: 2
+            }
+        ).format(
+            Number(amount) || 0
+        );
+
+    } catch {
+
+        return (
+            (Number(amount) || 0)
+                .toFixed(2) +
+            " " +
+            (currency || "CHF")
+        );
+    }
+}
+
+
+function escapeHtml(value) {
+
+    return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(
+            /"/g,
+            "&quot;"
+        )
+        .replace(
+            /'/g,
+            "&#039;"
+        );
+}
+
+
+/*
+  Liefert die Währung der aktuell angezeigten Daten.
+
+  Rückgabe:
+
+  "CHF"
+      wenn CHF ausgewählt ist.
+
+  "EUR"
+      wenn nur EUR vorhanden ist.
+
+  null
+      wenn mehrere Währungen vorhanden sind
+      und kein Währungsfilter aktiv ist.
+*/
+
+function getCurrencyForRows(rows) {
+
+    if (filters.currency) {
+        return filters.currency;
+    }
+
+
+    const currencies = [
+        ...new Set(
+            rows
+                .map(row => row.currency)
+                .filter(Boolean)
+        )
+    ];
+
+
+    if (currencies.length === 1) {
+        return currencies[0];
+    }
+
+
+    return null;
+}
+
+
+/*
+  Geldbetrag für eine bestimmte Datenmenge.
+
+  Bei mehreren Währungen wird bewusst
+  kein falscher Gesamtbetrag angezeigt.
+*/
+
+function formatAmountForRows(
+    amount,
+    rows
+) {
+
+    const currency =
+        getCurrencyForRows(rows);
+
+
+    if (!currency) {
+        return "Mehrere Währungen";
+    }
+
+
+    return formatMoney(
+        amount,
+        currency
+    );
+}
+
+
+/*
+  Beschriftung für Diagramme.
+*/
+
+function formatAxisAmount(
+    value,
+    rows
+) {
+
+    const currency =
+        getCurrencyForRows(rows);
+
+
+    if (!currency) {
+        return "Mehrere";
+    }
+
+
+    return formatMoney(
+        value,
+        currency
+    );
+}
+
+
+/* =========================================================
+   CSV PARSER
+========================================================= */
+
+function detectDelimiter(text) {
+
+    const firstLine =
+        String(text)
+            .split(/\r?\n/)[0] || "";
+
+
+    let comma = 0;
+    let semicolon = 0;
+    let tab = 0;
+    let quoted = false;
+
+
+    for (
+        let i = 0;
+        i < firstLine.length;
+        i++
+    ) {
+
+        const char =
+            firstLine[i];
+
+        if (char === '"') {
+
+            if (
+                quoted &&
+                firstLine[i + 1] === '"'
+            ) {
+
+                i++;
+
+            } else {
+
+                quoted = !quoted;
+            }
+
+            continue;
+        }
+
+
+        if (!quoted) {
+
+            if (char === ",") comma++;
+            if (char === ";") semicolon++;
+            if (char === "\t") tab++;
+        }
+    }
+
+
+    if (
+        semicolon >= comma &&
+        semicolon >= tab
+    ) {
+        return ";";
+    }
+
+
+    if (
+        tab >= comma &&
+        tab >= semicolon
+    ) {
+        return "\t";
+    }
+
+
+    return ",";
+}
+
+
+function parseCSV(text) {
+
+    text =
+        String(text)
+            .replace(/^\uFEFF/, "");
+
+
+    const delimiter =
+        detectDelimiter(text);
+
+
+    const rows = [];
+
+    let row = [];
+    let field = "";
+    let quoted = false;
+
+
+    for (
+        let i = 0;
+        i < text.length;
+        i++
+    ) {
+
+        const char =
+            text[i];
+
+        const next =
+            text[i + 1];
+
+
+        if (char === '"') {
+
+            if (
+                quoted &&
+                next === '"'
+            ) {
+
+                field += '"';
+                i++;
+
+            } else {
+
+                quoted = !quoted;
+            }
+
+            continue;
+        }
+
+
+        if (
+            !quoted &&
+            char === delimiter
+        ) {
+
+            row.push(field);
+            field = "";
+
+            continue;
+        }
+
+
+        if (
+            !quoted &&
+            (
+                char === "\n" ||
+                char === "\r"
+            )
+        ) {
+
+            if (
+                char === "\r" &&
+                next === "\n"
+            ) {
+                i++;
+            }
+
+
+            row.push(field);
+            field = "";
+
+
+            if (
+                row.some(
+                    value =>
+                        String(value)
+                            .trim() !== ""
+                )
+            ) {
+                rows.push(row);
+            }
+
+
+            row = [];
+
+            continue;
+        }
+
+
+        field += char;
+    }
+
+
+    if (
+        field.length ||
+        row.length
+    ) {
+
+        row.push(field);
+
+
+        if (
+            row.some(
+                value =>
+                    String(value)
+                        .trim() !== ""
+            )
+        ) {
+            rows.push(row);
+        }
+    }
+
+
+    if (!rows.length) {
+        return [];
+    }
+
+
+    const headers =
+        rows[0]
+            .map(normalizeHeader);
+
+
+    return rows
+        .slice(1)
+        .map(values => {
+
+            const object = {};
+
+
+            headers.forEach(
+                (
+                    header,
+                    index
+                ) => {
+
+                    object[header] =
+                        cleanValue(
+                            values[index] ??
+                            ""
+                        );
+                }
+            );
+
+
+            return object;
+        });
+}
+
+
+/* =========================================================
+   KATEGORIEN
+========================================================= */
+
+function defaultCategory(
+    merchant,
+    activityName
+) {
+
+    const text =
+        `${merchant || ""} ${activityName || ""}`
+            .toLowerCase();
+
+
+    const rules = [
+
+        ["Essen", [
+            "aldi",
+            "migros",
+            "coop",
+            "lidl",
+            "denner",
+            "spar",
+            "volg",
+            "migrolino",
+            "aldi suisse",
+            "restaurant",
+            "cafe",
+            "café",
+            "bar",
+            "pizza",
+            "burger",
+            "mcdonald",
+            "starbucks",
+            "kebab",
+            "take away",
+            "takeaway",
+            "Grill Munich",
+            "K Kiosk",
+            "Selecta",
+            "SV Schweiz"
+        ]],
+
+        ["Transport", [
+            "sbb",
+            "cff",
+            "öbb",
+            "bahn",
+            "tram",
+            "bus",
+            "uber",
+            "taxi",
+            "bolt",
+            "parking",
+            "parkhaus",
+            "tankstelle",
+            "shell",
+            "bp",
+            "esso",
+            "Testcenter AGVS",
+            "WSB"
+        ]],
+
+        ["Shopping", [
+            "amazon",
+            "zalando",
+            "galaxus",
+            "digitec",
+            "h&m",
+            "ikea",
+            "zara",
+            "decathlon",
+            "interdiscount",
+            "media markt",
+            "JLCPCB",
+            "Jumbo",
+            "Brockenhaus",
+            "garitec"
+        ]],
+
+        ["Abos", [
+            "netflix",
+            "spotify",
+            "youtube premium",
+            "disney",
+            "prime video",
+            "apple.com/bill",
+            "icloud",
+            "chatgpt",
+            "openai",
+            "adobe"
+        ]],
+
+        ["Reisen", [
+            "booking.com",
+            "airbnb",
+            "hotel",
+            "easyjet",
+            "swiss international",
+            "lufthansa",
+            "ryanair",
+            "air france",
+            "flug",
+            "flight"
+        ]],
+
+        ["Bargeld", [
+            "atm",
+            "bancomat",
+            "cash withdrawal",
+            "cash"
+        ]],
+
+        ["Freizeit", [
+            "kino",
+            "cinema",
+            "steam",
+            "playstation",
+            "xbox",
+            "concert",
+            "konzert",
+            "museum",
+            "sport",
+            "fitness",
+            "Kraftreaktor"
+        ]],
+
+        ["Kirche", [
+            "Church",
+            "Kirche"
+        ]]
+    ];
+
+
+    for (
+        const [category, words]
+        of rules
+    ) {
+
+        if (
+            words.some(
+                word =>
+                    text.includes(
+                        word.toLowerCase()
+                    )
+            )
+        ) {
+            return category;
+        }
+    }
+
+
+    return "Sonstiges";
+}
+
+
+function getCategory(
+    merchant,
+    activityName
+) {
+
+    if (
+        customMappings[merchant]
+    ) {
+
+        return customMappings[
+            merchant
+        ];
+    }
+
+
+    return defaultCategory(
+        merchant,
+        activityName
+    );
+}
+
+
+/* =========================================================
+   DATEN AUFBEREITEN
+========================================================= */
+
+function transformRows(rawRows) {
+
+    return rawRows
+
+        .map(row => {
+
+            const rawDate =
+                row["DATE"] ||
+                row["DATUM"] ||
+                row["DATE/TIME"] ||
+                "";
+
+
+            const dateInfo =
+                parseDate(rawDate);
+
+
+            const activityType =
+                row["ACTIVITY TYPE"] ||
+                row["ACTIVITY_TYPE"] ||
+                "";
+
+
+            const activityName =
+                row["ACTIVITY NAME"] ||
+                row["ACTIVITY_NAME"] ||
+                "";
+
+
+            const recipient =
+                row["RECIPIENT"] ||
+                "";
+
+
+            const sender =
+                row["SENDER"] ||
+                "";
+
+
+            const merchant =
+                cleanValue(
+                    recipient ||
+                    activityName ||
+                    sender ||
+                    "Unbekannt"
+                );
+
+
+            const debit =
+                parseAmount(
+                    row["DEBIT"] ||
+                    row["BETRAG"] ||
+                    row["AMOUNT"] ||
+                    0
+                );
+
+
+            const currency =
+                cleanValue(
+                    row["DEBIT CURRENCY"] ||
+                    row["CURRENCY"] ||
+                    row["WÄHRUNG"] ||
+                    "CHF"
+                );
+
+
+            const isExpense =
+                debit < 0 ||
+                String(activityType)
+                    .toUpperCase()
+                    .includes("OUT");
+
+
+            if (!isExpense) {
+                return null;
+            }
+
+
+            const amount =
+                Math.abs(debit);
+
+
+            if (amount <= 0) {
+                return null;
+            }
+
+
+            let month =
+                dateInfo.month;
+
+            let dateKey =
+                dateInfo.dateKey;
+
+            let dateText =
+                dateInfo.dateText;
+
+
+            if (!month) {
+
+                const fallback =
+                    String(rawDate)
+                        .match(
+                            /(\d{1,2})[.\/](\d{1,2})[.\/](\d{4})/
+                        );
+
+
+                if (fallback) {
+
+                    const day =
+                        Number(fallback[1]);
+
+                    const monthNumber =
+                        Number(fallback[2]);
+
+                    const year =
+                        Number(fallback[3]);
+
+
+                    month =
+                        `${year}-${String(
+                            monthNumber
+                        ).padStart(2, "0")}`;
+
+
+                    dateKey =
+                        `${String(day).padStart(
+                            2,
+                            "0"
+                        )}.${String(
+                            monthNumber
+                        ).padStart(
+                            2,
+                            "0"
+                        )}.${year}`;
+
+
+                    dateText =
+                        dateKey;
+                }
+            }
+
+
+            return {
+
+                date:
+                    dateInfo.date,
+
+                dateKey,
+
+                dateText,
+
+                month,
+
+                activityType,
+
+                activityName,
+
+                merchant,
+
+                currency,
+
+                amount,
+
+                category:
+                    getCategory(
+                        merchant,
+                        activityName
+                    ),
+
+                locality:
+                    cleanValue(
+                        row["LOCALITY"] ||
+                        ""
+                    ),
+
+                raw: row
+            };
+        })
+
+        .filter(Boolean);
+}
+
+
+/* =========================================================
+   FILTER
+========================================================= */
+
+function matchesFilters(
+    row,
+    options = {}
+) {
+
+    if (
+        !options.ignoreMonth &&
+        filters.month &&
+        row.month !== filters.month
+    ) {
+        return false;
+    }
+
+
+    if (
+        !options.ignoreDate &&
+        filters.date &&
+        row.dateKey !== filters.date
+    ) {
+        return false;
+    }
+
+
+    if (
+        !options.ignoreCategory &&
+        filters.category &&
+        row.category !== filters.category
+    ) {
+        return false;
+    }
+
+
+    if (
+        !options.ignoreMerchant &&
+        filters.merchant &&
+        row.merchant !== filters.merchant
+    ) {
+        return false;
+    }
+
+
+    if (
+        !options.ignoreCurrency &&
+        filters.currency &&
+        row.currency !== filters.currency
+    ) {
+        return false;
+    }
+
+
+    return true;
+}
+
+
+function getFilteredData(
+    options = {}
+) {
+
+    return data.filter(
+        row =>
+            matchesFilters(
+                row,
+                options
+            )
+    );
+}
+
+
+/* =========================================================
+   FILTER DROPDOWNS
+========================================================= */
+
+function populateFilters() {
+
+    const months = [
+        ...new Set(
+            data
+                .map(row => row.month)
+                .filter(
+                    month =>
+                        /^\d{4}-\d{2}$/
+                            .test(month)
+                )
+        )
+    ].sort();
+
+
+    const dates = [
+        ...new Set(
+            data
+                .map(row => row.dateKey)
+                .filter(Boolean)
+        )
+    ].sort((a, b) => {
+
+        const da =
+            parseDate(a).date;
+
+        const db =
+            parseDate(b).date;
+
+
+        if (!da || !db) {
+            return b.localeCompare(a);
+        }
+
+
+        return db - da;
+    });
+
+
+    const merchants = [
+        ...new Set(
+            data
+                .map(row => row.merchant)
+                .filter(Boolean)
+        )
+    ].sort(
+        (a, b) =>
+            a.localeCompare(
+                b,
+                "de"
+            )
+    );
+
+
+    const currencies = [
+        ...new Set(
+            data
+                .map(row => row.currency)
+                .filter(Boolean)
+        )
+    ].sort();
+
+
+    monthFilter.innerHTML =
+        `<option value="">
+            Alle Monate
+        </option>`;
+
+
+    months.forEach(month => {
+
+        const option =
+            document.createElement(
+                "option"
+            );
+
+
+        option.value =
+            month;
+
+        option.textContent =
+            monthLabel(month);
+
+
+        monthFilter.appendChild(
+            option
+        );
+    });
+
+
+    dateFilter.innerHTML =
+        `<option value="">
+            Alle Daten
+        </option>`;
+
+
+    dates.forEach(date => {
+
+        const option =
+            document.createElement(
+                "option"
+            );
+
+
+        option.value =
+            date;
+
+        option.textContent =
+            date;
+
+
+        dateFilter.appendChild(
+            option
+        );
+    });
+
+
+    categoryFilter.innerHTML =
+        `<option value="">
+            Alle Kategorien
+        </option>`;
+
+
+    CATEGORIES.forEach(
+        category => {
+
+            const option =
+                document.createElement(
+                    "option"
+                );
+
+
+            option.value =
+                category;
+
+            option.textContent =
+                category;
+
+
+            categoryFilter.appendChild(
+                option
+            );
+        }
+    );
+
+
+    merchantFilter.innerHTML =
+        `<option value="">
+            Alle Händler
+        </option>`;
+
+
+    merchants.forEach(
+        merchant => {
+
+            const option =
+                document.createElement(
+                    "option"
+                );
+
+
+            option.value =
+                merchant;
+
+            option.textContent =
+                merchant;
+
+
+            merchantFilter.appendChild(
+                option
+            );
+        }
+    );
+
+
+    currencyFilter.innerHTML =
+        `<option value="">
+            Alle Währungen
+        </option>`;
+
+
+    currencies.forEach(
+        currency => {
+
+            const option =
+                document.createElement(
+                    "option"
+                );
+
+
+            option.value =
+                currency;
+
+            option.textContent =
+                currency;
+
+
+            currencyFilter.appendChild(
+                option
+            );
+        }
+    );
+
+
+    /*
+      CHF standardmässig aktivieren,
+      sofern CHF in den Daten existiert.
+
+      Falls eine CSV keine CHF-Ausgaben enthält,
+      wird stattdessen "Alle Währungen" verwendet.
+    */
+
+    if (
+        currencies.includes("CHF")
+    ) {
+
+        filters.currency =
+            "CHF";
+
+    } else {
+
+        filters.currency =
+            "";
+    }
+
+
+    syncFilterControls();
+}
+
+
+/* =========================================================
+   FILTER CONTROLS
+========================================================= */
+
+function syncFilterControls() {
+
+    monthFilter.value =
+        filters.month;
+
+    dateFilter.value =
+        filters.date;
+
+    categoryFilter.value =
+        filters.category;
+
+    merchantFilter.value =
+        filters.merchant;
+
+    currencyFilter.value =
+        filters.currency;
+}
+
+
+/* =========================================================
+   AKTIVE FILTER
+========================================================= */
+
+function renderActiveFilters() {
+
+    activeFiltersEl.innerHTML =
+        "";
+
+
+    const active = [
+
+        [
+            "month",
+            filters.month
+                ? monthLabel(
+                    filters.month
+                )
+                : ""
+        ],
+
+        [
+            "date",
+            filters.date
+        ],
+
+        [
+            "category",
+            filters.category
+        ],
+
+        [
+            "merchant",
+            filters.merchant
+        ],
+
+        [
+            "currency",
+            filters.currency
+        ]
+    ];
+
+
+    active.forEach(
+        ([key, value]) => {
+
+            if (!value) {
+                return;
+            }
+
+
+            const chip =
+                document.createElement(
+                    "div"
+                );
+
+
+            chip.className =
+                "filter-chip";
+
+
+            const label =
+                document.createElement(
+                    "span"
+                );
+
+
+            label.textContent =
+                value;
+
+
+            const close =
+                document.createElement(
+                    "button"
+                );
+
+
+            close.textContent =
+                "×";
+
+
+            close.addEventListener(
+                "click",
+                () => {
+
+                    filters[key] =
+                        "";
+
+
+                    syncFilterControls();
+
+                    updateDashboard();
+                }
+            );
+
+
+            chip.appendChild(label);
+            chip.appendChild(close);
+
+            activeFiltersEl.appendChild(
+                chip
+            );
+        }
+    );
+
+
+    if (
+        Object.values(filters)
+            .some(Boolean)
+    ) {
+
+        const reset =
+            document.createElement(
+                "button"
+            );
+
+
+        reset.className =
+            "filter-chip reset";
+
+
+        reset.textContent =
+            "Alle Filter zurücksetzen";
+
+
+        reset.addEventListener(
+            "click",
+            resetFilters
+        );
+
+
+        activeFiltersEl.appendChild(
+            reset
+        );
+    }
+}
+
+
+/*
+  "Alle Filter zurücksetzen":
+
+  CHF bleibt Standard.
+*/
+
+function resetFilters() {
+
+    filters.month = "";
+    filters.date = "";
+    filters.category = "";
+    filters.merchant = "";
+
+    /*
+      CHF wieder als Standard.
+    */
+    filters.currency = "CHF";
+
+
+    /*
+      Wenn CHF nicht in den Daten
+      existiert, verwenden wir "Alle Währungen".
+    */
+    if (
+        data.length &&
+        !data.some(
+            row =>
+                row.currency === "CHF"
+        )
+    ) {
+        filters.currency = "";
+    }
+
+
+    syncFilterControls();
+
+    updateDashboard();
+}
+
+
+/* =========================================================
+   CHART UPDATE
+========================================================= */
+
+function updateChart(
+    key,
+    canvasId,
+    config
+) {
+
+    const canvas =
+        document.getElementById(
+            canvasId
+        );
+
+
+    if (
+        !canvas ||
+        typeof Chart === "undefined"
+    ) {
+        return;
+    }
+
+
+    let chart =
+        charts[key];
+
+
+    if (!chart) {
+        chart =
+            Chart.getChart?.(canvas);
+    }
+
+
+    if (chart) {
+
+        chart.data =
+            config.data;
+
+        chart.options =
+            config.options;
+
+        chart.update("none");
+
+        charts[key] =
+            chart;
+
+        return;
+    }
+
+
+    charts[key] =
+        new Chart(
+            canvas,
+            config
+        );
+}
+
+
+/* =========================================================
+   KATEGORIEN
+========================================================= */
+
+function updateCategoryChart() {
+
+    const rows =
+        getFilteredData({
+            ignoreCategory: true
+        });
+
+
+    const totals = {};
+
+
+    CATEGORIES.forEach(
+        category => {
+            totals[category] = 0;
+        }
+    );
+
+
+    rows.forEach(row => {
+
+        if (
+            !(row.category in totals)
+        ) {
+            totals[row.category] = 0;
+        }
+
+
+        totals[row.category] +=
+            row.amount;
+    });
+
+
+    const labels =
+        CATEGORIES.slice();
+
+
+    const values =
+        labels.map(
+            category =>
+                totals[category] || 0
+        );
+
+
+    const backgroundColor =
+        labels.map(
+            (
+                category,
+                index
+            ) => {
+
+                const selected =
+                    filters.category ===
+                    category;
+
+
+                return selected
+                    ? COLORS[
+                        index %
+                        COLORS.length
+                    ]
+                    : filters.category
+                        ? "rgba(148,163,184,.28)"
+                        : COLORS[
+                            index %
+                            COLORS.length
+                        ];
+            }
+        );
+
+
+    const borderColor =
+        labels.map(category =>
+            filters.category ===
+            category
+                ? "#111827"
+                : "rgba(100,116,139,.35)"
+        );
+
+
+    const borderWidth =
+        labels.map(category =>
+            filters.category ===
+            category
+                ? 3
+                : 1
+        );
+
+
+    const offset =
+        labels.map(category =>
+            filters.category ===
+            category
+                ? 12
+                : 0
+        );
+
+
+    updateChart(
+        "category",
+        "categoryChart",
+        {
+
+            type: "doughnut",
+
+            data: {
+
+                labels,
+
+                datasets: [{
+                    data: values,
+                    backgroundColor,
+                    borderColor,
+                    borderWidth,
+                    offset,
+                    hoverOffset: 10
+                }]
+            },
+
+            options: {
+
+                responsive: true,
+                maintainAspectRatio: false,
+
+                plugins: {
+
+                    legend: {
+
+                        position: "right",
+
+                        labels: {
+                            usePointStyle: true,
+                            boxWidth: 10,
+                            padding: 10
+                        }
+                    },
+
+                    tooltip: {
+
+                        callbacks: {
+
+                            label:
+                                context => {
+
+                                    const currency =
+                                        getCurrencyForRows(
+                                            rows
+                                        );
+
+
+                                    if (!currency) {
+
+                                        return `${context.label}: Mehrere Währungen`;
+                                    }
+
+
+                                    return `${context.label}: ${formatMoney(
+                                        context.raw || 0,
+                                        currency
+                                    )}`;
+                                }
+                        }
+                    }
+                },
+
+                onClick:
+                    (
+                        event,
+                        elements
+                    ) => {
+
+                        if (
+                            !elements.length
+                        ) {
+                            return;
+                        }
+
+
+                        const category =
+                            labels[
+                                elements[0].index
+                            ];
+
+
+                        filters.category =
+                            filters.category ===
+                            category
+                                ? ""
+                                : category;
+
+
+                        syncFilterControls();
+
+                        updateDashboard();
+                    }
+            }
+        }
+    );
+}
+
+
+/* =========================================================
+   HÄNDLER
+========================================================= */
+
+function updateMerchantChart() {
+
+    const rows =
+        getFilteredData({
+            ignoreMerchant: true
+        });
+
+
+    const totals = {};
+
+
+    rows.forEach(row => {
+
+        totals[row.merchant] =
+            (
+                totals[row.merchant] ||
+                0
+            ) + row.amount;
+    });
+
+
+    let entries =
+        Object.entries(totals)
+            .sort(
+                (a, b) =>
+                    b[1] - a[1]
+            );
+
+
+    const selected =
+        filters.merchant;
+
+
+    const top =
+        entries.slice(0, 20);
+
+
+    if (
+        selected &&
+        !top.some(
+            ([merchant]) =>
+                merchant === selected
+        )
+    ) {
+
+        const selectedEntry =
+            entries.find(
+                ([merchant]) =>
+                    merchant === selected
+            );
+
+
+        if (selectedEntry) {
+
+            top.pop();
+
+            top.push(
+                selectedEntry
+            );
+        }
+    }
+
+
+    entries =
+        top.sort(
+            (a, b) =>
+                b[1] - a[1]
+        );
+
+
+    const labels =
+        entries.map(
+            entry => entry[0]
+        );
+
+
+    const values =
+        entries.map(
+            entry => entry[1]
+        );
+
+
+    const backgroundColor =
+        labels.map(
+            (
+                merchant,
+                index
+            ) => {
+
+                const selectedMerchant =
+                    filters.merchant ===
+                    merchant;
+
+
+                return selectedMerchant
+                    ? "#2563eb"
+                    : filters.merchant
+                        ? "rgba(148,163,184,.30)"
+                        : COLORS[
+                            index %
+                            COLORS.length
+                        ];
+            }
+        );
+
+
+    const borderColor =
+        labels.map(
+            merchant =>
+                filters.merchant ===
+                merchant
+                    ? "#111827"
+                    : "rgba(100,116,139,.35)"
+        );
+
+
+    const borderWidth =
+        labels.map(
+            merchant =>
+                filters.merchant ===
+                merchant
+                    ? 3
+                    : 1
+        );
+
+
+    updateChart(
+        "merchant",
+        "merchantChart",
+        {
+
+            type: "bar",
+
+            data: {
+
+                labels,
+
+                datasets: [{
+                    data: values,
+                    backgroundColor,
+                    borderColor,
+                    borderWidth,
+                    borderRadius: 6
+                }]
+            },
+
+            options: {
+
+                indexAxis: "y",
+
+                responsive: true,
+
+                maintainAspectRatio: false,
+
+                scales: {
+
+                    x: {
+
+                        beginAtZero: true,
+
+                        ticks: {
+
+                            callback:
+                                value =>
+                                    formatAxisAmount(
+                                        value,
+                                        rows
+                                    )
+                        }
+                    },
+
+                    y: {
+
+                        ticks: {
+                            autoSkip: false
+                        }
+                    }
+                },
+
+                plugins: {
+
+                    legend: {
+                        display: false
+                    },
+
+                    tooltip: {
+
+                        callbacks: {
+
+                            label:
+                                context => {
+
+                                    const currency =
+                                        getCurrencyForRows(
+                                            rows
+                                        );
+
+
+                                    if (!currency) {
+                                        return "Mehrere Währungen";
+                                    }
+
+
+                                    return formatMoney(
+                                        context.raw || 0,
+                                        currency
+                                    );
+                                }
+                        }
+                    }
+                },
+
+                onClick:
+                    (
+                        event,
+                        elements
+                    ) => {
+
+                        if (
+                            !elements.length
+                        ) {
+                            return;
+                        }
+
+
+                        const merchant =
+                            labels[
+                                elements[0].index
+                            ];
+
+
+                        filters.merchant =
+                            filters.merchant ===
+                            merchant
+                                ? ""
+                                : merchant;
+
+
+                        syncFilterControls();
+
+                        updateDashboard();
+                    }
+            }
+        }
+    );
+}
+
+
+/* =========================================================
+   MONATE
+========================================================= */
+
+function updateMonthlyChart() {
+
+    const allMonths = [
+        ...new Set(
+            data
+                .map(row => row.month)
+                .filter(
+                    month =>
+                        /^\d{4}-\d{2}$/
+                            .test(month)
+                )
+        )
+    ].sort();
+
+
+    const rows =
+        getFilteredData({
+            ignoreMonth: true
+        });
+
+
+    const totals = {};
+
+
+    allMonths.forEach(
+        month => {
+            totals[month] = 0;
+        }
+    );
+
+
+    rows.forEach(row => {
+
+        if (
+            !/^\d{4}-\d{2}$/
+                .test(row.month)
+        ) {
+            return;
+        }
+
+
+        if (
+            !(row.month in totals)
+        ) {
+            totals[row.month] = 0;
+        }
+
+
+        totals[row.month] +=
+            row.amount;
+    });
+
+
+    const labels =
+        allMonths.map(monthLabel);
+
+
+    const values =
+        allMonths.map(
+            month =>
+                totals[month] || 0
+        );
+
+
+    const backgroundColor =
+        allMonths.map(
+            (
+                month,
+                index
+            ) => {
+
+                if (
+                    filters.month ===
+                    month
+                ) {
+                    return "#2563eb";
+                }
+
+
+                if (
+                    filters.month
+                ) {
+                    return "rgba(148,163,184,.30)";
+                }
+
+
+                return COLORS[
+                    index %
+                    COLORS.length
+                ];
+            }
+        );
+
+
+    const borderColor =
+        allMonths.map(
+            month =>
+                filters.month ===
+                month
+                    ? "#111827"
+                    : "rgba(100,116,139,.35)"
+        );
+
+
+    const borderWidth =
+        allMonths.map(
+            month =>
+                filters.month ===
+                month
+                    ? 4
+                    : 1
+        );
+
+
+    updateChart(
+        "monthly",
+        "monthlyChart",
+        {
+
+            type: "bar",
+
+            data: {
+
+                labels,
+
+                datasets: [{
+
+                    label: "Ausgaben",
+
+                    data: values,
+
+                    backgroundColor,
+
+                    borderColor,
+
+                    borderWidth,
+
+                    borderRadius: 7,
+
+                    maxBarThickness: 55
+                }]
+            },
+
+            options: {
+
+                responsive: true,
+
+                maintainAspectRatio: false,
+
+                scales: {
+
+                    y: {
+
+                        beginAtZero: true,
+
+                        ticks: {
+
+                            callback:
+                                value =>
+                                    formatAxisAmount(
+                                        value,
+                                        rows
+                                    )
+                        }
+                    },
+
+                    x: {
+
+                        ticks: {
+                            maxRotation: 0,
+                            minRotation: 0
+                        }
+                    }
+                },
+
+                plugins: {
+
+                    legend: {
+                        display: false
+                    },
+
+                    tooltip: {
+
+                        callbacks: {
+
+                            label:
+                                context => {
+
+                                    const currency =
+                                        getCurrencyForRows(
+                                            rows
+                                        );
+
+
+                                    if (!currency) {
+                                        return "Mehrere Währungen";
+                                    }
+
+
+                                    return formatMoney(
+                                        context.raw || 0,
+                                        currency
+                                    );
+                                }
+                        }
+                    }
+                },
+
+                onClick:
+                    (
+                        event,
+                        elements
+                    ) => {
+
+                        if (
+                            !elements.length
+                        ) {
+                            return;
+                        }
+
+
+                        const month =
+                            allMonths[
+                                elements[0].index
+                            ];
+
+
+                        filters.month =
+                            filters.month ===
+                            month
+                                ? ""
+                                : month;
+
+
+                        syncFilterControls();
+
+                        updateDashboard();
+                    }
+            }
+        }
+    );
+}
+
+
+/* =========================================================
+   ZEITVERLAUF
+========================================================= */
+
+function updateTimelineChart() {
+
+    const rows =
+        getFilteredData({
+            ignoreDate: true
+        });
+
+
+    const allDates = [
+        ...new Set(
+            data
+                .map(row => row.dateKey)
+                .filter(Boolean)
+        )
+    ].sort((a, b) => {
+
+        const da =
+            parseDate(a).date;
+
+        const db =
+            parseDate(b).date;
+
+
+        if (!da || !db) {
+            return a.localeCompare(b);
+        }
+
+
+        return da - db;
+    });
+
+
+    const totals = {};
+
+
+    allDates.forEach(
+        date => {
+            totals[date] = 0;
+        }
+    );
+
+
+    rows.forEach(row => {
+
+        totals[row.dateKey] =
+            (
+                totals[row.dateKey] ||
+                0
+            ) + row.amount;
+    });
+
+
+    const values =
+        allDates.map(
+            date =>
+                totals[date] || 0
+        );
+
+
+    const pointBackgroundColor =
+        allDates.map(
+            date => {
+
+                if (!filters.date) {
+                    return "#2563eb";
+                }
+
+
+                return filters.date ===
+                    date
+                    ? "#2563eb"
+                    : "rgba(148,163,184,.45)";
+            }
+        );
+
+
+    const pointRadius =
+        allDates.map(
+            date =>
+                filters.date ===
+                date
+                    ? 7
+                    : 3
+        );
+
+
+    updateChart(
+        "timeline",
+        "timelineChart",
+        {
+
+            type: "line",
+
+            data: {
+
+                labels: allDates,
+
+                datasets: [{
+
+                    label: "Ausgaben",
+
+                    data: values,
+
+                    borderColor:
+                        "#2563eb",
+
+                    backgroundColor:
+                        "rgba(37,99,235,.08)",
+
+                    pointBackgroundColor,
+
+                    pointBorderColor:
+                        "#111827",
+
+                    pointRadius,
+
+                    pointBorderWidth: 1,
+
+                    tension: .25,
+
+                    fill: true
+                }]
+            },
+
+            options: {
+
+                responsive: true,
+
+                maintainAspectRatio: false,
+
+                scales: {
+
+                    y: {
+
+                        beginAtZero: true,
+
+                        ticks: {
+
+                            callback:
+                                value =>
+                                    formatAxisAmount(
+                                        value,
+                                        rows
+                                    )
+                        }
+                    },
+
+                    x: {
+
+                        ticks: {
+
+                            autoSkip: true,
+
+                            maxTicksLimit: 20,
+
+                            maxRotation: 0
+                        }
+                    }
+                },
+
+                plugins: {
+
+                    legend: {
+                        display: false
+                    },
+
+                    tooltip: {
+
+                        callbacks: {
+
+                            label:
+                                context => {
+
+                                    const currency =
+                                        getCurrencyForRows(
+                                            rows
+                                        );
+
+
+                                    if (!currency) {
+                                        return "Mehrere Währungen";
+                                    }
+
+
+                                    return formatMoney(
+                                        context.raw || 0,
+                                        currency
+                                    );
+                                }
+                        }
+                    }
+                },
+
+                onClick:
+                    (
+                        event,
+                        elements
+                    ) => {
+
+                        if (
+                            !elements.length
+                        ) {
+                            return;
+                        }
+
+
+                        const date =
+                            allDates[
+                                elements[0].index
+                            ];
+
+
+                        filters.date =
+                            filters.date ===
+                            date
+                                ? ""
+                                : date;
+
+
+                        syncFilterControls();
+
+                        updateDashboard();
+                    }
+            }
+        }
+    );
+}
+
+
+/* =========================================================
+   GRÖSSTE AUSGABEN
+========================================================= */
+
+function updateLargestExpenses() {
+
+    const rows =
+        getFilteredData({
+            ignoreMerchant: true
+        });
+
+
+    const count =
+        Math.max(
+            1,
+            Math.min(
+                100,
+                Number(
+                    largestCount.value
+                ) || 5
+            )
+        );
+
+
+    const sorted =
+        [...rows]
+            .sort(
+                (a, b) =>
+                    b.amount - a.amount
+            )
+            .slice(
+                0,
+                count
+            );
+
+
+    largestExpenses.innerHTML =
+        "";
+
+
+    if (!sorted.length) {
+
+        largestExpenses.innerHTML =
+            `<div class="empty">
+                Keine Ausgaben für die aktuelle Auswahl.
+            </div>`;
+
+        return;
+    }
+
+
+    const multipleCurrencies =
+        !getCurrencyForRows(rows);
+
+
+    sorted.forEach(row => {
+
+        const item =
+            document.createElement(
+                "div"
+            );
+
+
+        item.className =
+            "expense-row";
+
+
+        if (
+            filters.merchant ===
+            row.merchant
+        ) {
+
+            item.style.border =
+                "2px solid #2563eb";
+
+            item.style.background =
+                "#eff6ff";
+        }
+
+
+        /*
+          Bei mehreren Währungen zeigen wir
+          pro Einzeltransaktion trotzdem
+          die tatsächliche Währung.
+
+          Dadurch ist die Liste weiterhin eindeutig.
+        */
+
+        const amountText =
+            multipleCurrencies
+                ? formatMoney(
+                    row.amount,
+                    row.currency
+                )
+                : formatMoney(
+                    row.amount,
+                    getCurrencyForRows(rows)
+                );
+
+
+        item.innerHTML = `
+
+            <div class="expense-main">
+
+                <div class="expense-merchant">
+                    ${escapeHtml(
+                        row.merchant
+                    )}
+                </div>
+
+                <div class="expense-meta">
+
+                    ${escapeHtml(
+                        row.dateText ||
+                        "—"
+                    )}
+
+                    ·
+
+                    ${escapeHtml(
+                        row.category
+                    )}
+
+                    ${row.locality
+                        ? ` · ${escapeHtml(
+                            row.locality
+                        )}`
+                        : ""
+                    }
+
+                </div>
+
+            </div>
+
+            <div class="expense-amount">
+                ${amountText}
+            </div>
+        `;
+
+
+        item.addEventListener(
+            "click",
+            () => {
+
+                if (
+                    filters.merchant ===
+                    row.merchant
+                ) {
+
+                    filters.merchant =
+                        "";
+
+                } else {
+
+                    filters.merchant =
+                        row.merchant;
+                }
+
+
+                syncFilterControls();
+
+                updateDashboard();
+            }
+        );
+
+
+        largestExpenses.appendChild(
+            item
+        );
+    });
+}
+
+
+/* =========================================================
+   KPIs
+========================================================= */
+
+function updateKPIs() {
+
+    const rows =
+        getFilteredData();
+
+
+    const total =
+        rows.reduce(
+            (sum, row) =>
+                sum + row.amount,
+            0
+        );
+
+
+    const average =
+        rows.length
+            ? total / rows.length
+            : 0;
+
+
+    const merchants =
+        new Set(
+            rows.map(
+                row =>
+                    row.merchant
+            )
+        );
+
+
+    const currency =
+        getCurrencyForRows(rows);
+
+
+    /*
+      WICHTIG:
+
+      Ohne Währungsfilter und bei
+      mehreren Währungen darf kein
+      gemeinsamer Betrag angezeigt werden.
+    */
+
+    if (
+        !currency &&
+        rows.length
+    ) {
+
+        kpiTotal.textContent =
+            "Mehrere Währungen";
+
+        kpiAverage.textContent =
+            "Mehrere Währungen";
+
+    } else {
+
+        kpiTotal.textContent =
+            formatMoney(
+                total,
+                currency || "CHF"
+            );
+
+
+        kpiAverage.textContent =
+            formatMoney(
+                average,
+                currency || "CHF"
+            );
+    }
+
+
+    kpiTransactions.textContent =
+        rows.length.toLocaleString(
+            "de-CH"
+        );
+
+
+    kpiMerchants.textContent =
+        merchants.size.toLocaleString(
+            "de-CH"
+        );
+}
+
+
+/* =========================================================
+   DASHBOARD
+========================================================= */
+
+function updateDashboard() {
+
+    if (!data.length) {
+
+        kpiTotal.textContent =
+            "0.00 CHF";
+
+        kpiTransactions.textContent =
+            "0";
+
+        kpiAverage.textContent =
+            "0.00 CHF";
+
+        kpiMerchants.textContent =
+            "0";
+
+
+        largestExpenses.innerHTML =
+            `<div class="empty">
+                Noch keine CSV geladen.
+            </div>`;
+
+
+        return;
+    }
+
+
+    renderActiveFilters();
+
+    updateKPIs();
+
+    updateCategoryChart();
+
+    updateMerchantChart();
+
+    updateMonthlyChart();
+
+    updateTimelineChart();
+
+    updateLargestExpenses();
+}
+
+
+/* =========================================================
+   CSV LADEN
+========================================================= */
+
+csvFile.addEventListener(
+    "change",
+    event => {
+
+        const file =
+            event.target.files?.[0];
+
+
+        if (!file) {
+            return;
+        }
+
+
+        statusEl.className =
+            "status";
+
+
+        statusEl.textContent =
+            "CSV wird geladen …";
+
+
+        const reader =
+            new FileReader();
+
+
+        reader.onload = () => {
+
+            try {
+
+                const rawRows =
+                    parseCSV(
+                        reader.result
+                    );
+
+
+                if (!rawRows.length) {
+
+                    throw new Error(
+                        "Die CSV enthält keine Daten."
+                    );
+                }
+
+
+                const transformed =
+                    transformRows(
+                        rawRows
+                    );
+
+
+                if (!transformed.length) {
+
+                    throw new Error(
+                        "Es wurden keine Ausgaben gefunden. Prüfe bitte das Yuh-CSV-Format."
+                    );
+                }
+
+
+                data =
+                    transformed;
+
+
+                /*
+                  Alle Filter zurücksetzen.
+
+                  Währung wird anschliessend
+                  in populateFilters() automatisch
+                  auf CHF gesetzt, sofern CHF
+                  vorhanden ist.
+                */
+
+                filters.month = "";
+                filters.date = "";
+                filters.category = "";
+                filters.merchant = "";
+                filters.currency = "";
+
+
+                populateFilters();
+
+                updateDashboard();
+
+
+                console.log(
+                    "Yuh-Daten geladen:",
+                    data.length
+                );
+
+
+                console.log(
+                    "Erkannte Monate:",
+                    [
+                        ...new Set(
+                            data
+                                .map(
+                                    row =>
+                                        row.month
+                                )
+                                .filter(Boolean)
+                        )
+                    ].sort()
+                );
+
+
+                console.log(
+                    "Erkannte Währungen:",
+                    [
+                        ...new Set(
+                            data
+                                .map(
+                                    row =>
+                                        row.currency
+                                )
+                                .filter(Boolean)
+                        )
+                    ].sort()
+                );
+
+
+                statusEl.className =
+                    "status success";
+
+
+                statusEl.textContent =
+                    `${data.length.toLocaleString(
+                        "de-CH"
+                    )} Ausgaben geladen.`;
+
+            } catch (error) {
+
+                console.error(error);
+
+                data = [];
+
+                statusEl.className =
+                    "status error";
+
+
+                statusEl.textContent =
+                    `Fehler: ${error.message}`;
+            }
+        };
+
+
+        reader.onerror = () => {
+
+            statusEl.className =
+                "status error";
+
+
+            statusEl.textContent =
+                "Die CSV konnte nicht gelesen werden.";
+        };
+
+
+        reader.readAsText(
+            file,
+            "UTF-8"
+        );
+    }
+);
+
+
+/* =========================================================
+   FILTER EVENTS
+========================================================= */
+
+monthFilter.addEventListener(
+    "change",
+    () => {
+
+        filters.month =
+            monthFilter.value;
+
+        updateDashboard();
+    }
+);
+
+
+dateFilter.addEventListener(
+    "change",
+    () => {
+
+        filters.date =
+            dateFilter.value;
+
+        updateDashboard();
+    }
+);
+
+
+categoryFilter.addEventListener(
+    "change",
+    () => {
+
+        filters.category =
+            categoryFilter.value;
+
+        updateDashboard();
+    }
+);
+
+
+merchantFilter.addEventListener(
+    "change",
+    () => {
+
+        filters.merchant =
+            merchantFilter.value;
+
+        updateDashboard();
+    }
+);
+
+
+currencyFilter.addEventListener(
+    "change",
+    () => {
+
+        /*
+          "" bedeutet bewusst:
+          Alle Währungen.
+
+          In diesem Fall zeigen die KPIs
+          bei mehreren Währungen
+          "Mehrere Währungen".
+        */
+
+        filters.currency =
+            currencyFilter.value;
+
+        updateDashboard();
+    }
+);
+
+
+largestCount.addEventListener(
+    "input",
+    updateLargestExpenses
+);
+
+
+/* =========================================================
+   EINSTELLUNGEN
+========================================================= */
+
+function openSettings() {
+
+    dashboardPage.classList.add(
+        "hidden"
+    );
+
+    settingsPage.classList.add(
+        "active"
+    );
+
+    renderSettings();
+}
+
+
+function closeSettings() {
+
+    settingsPage.classList.remove(
+        "active"
+    );
+
+    dashboardPage.classList.remove(
+        "hidden"
+    );
+
+    updateDashboard();
+}
+
+
+function handleHash() {
+
+    if (
+        window.location.hash ===
+        "#einstellungen"
+    ) {
+
+        openSettings();
+
+    } else {
+
+        closeSettings();
+    }
+}
+
+
+window.addEventListener(
+    "hashchange",
+    handleHash
+);
+
+
+backButton.addEventListener(
+    "click",
+    () => {
+        window.location.hash = "";
+    }
+);
+
+
+/* =========================================================
+   SETTINGS RENDER
+========================================================= */
+
+function renderSettings() {
+
+    const merchants = [
+        ...new Set(
+            data
+                .map(
+                    row =>
+                        row.merchant
+                )
+                .filter(Boolean)
+        )
+    ].sort(
+        (a, b) =>
+            a.localeCompare(
+                b,
+                "de"
+            )
+    );
+
+
+    settingsMerchants =
+        merchants;
+
+
+    merchantSettingsList.innerHTML =
+        "";
+
+
+    if (!merchants.length) {
+
+        merchantSettingsList.innerHTML =
+            `<div class="empty">
+                Lade zuerst eine Yuh-CSV im Dashboard.
+            </div>`;
+
+        return;
+    }
+
+
+    merchants.forEach(
+        merchant => {
+
+            const wrapper =
+                document.createElement(
+                    "div"
+                );
+
+
+            wrapper.className =
+                "merchant-settings";
+
+
+            const name =
+                document.createElement(
+                    "div"
+                );
+
+
+            name.className =
+                "merchant-name";
+
+
+            name.textContent =
+                merchant;
+
+
+            const select =
+                document.createElement(
+                    "select"
+                );
+
+
+            const automatic =
+                document.createElement(
+                    "option"
+                );
+
+
+            automatic.value =
+                "";
+
+
+            automatic.textContent =
+                `Automatisch (${defaultCategory(
+                    merchant,
+                    ""
+                )})`;
+
+
+            select.appendChild(
+                automatic
+            );
+
+
+            CATEGORIES.forEach(
+                category => {
+
+                    const option =
+                        document.createElement(
+                            "option"
+                        );
+
+
+                    option.value =
+                        category;
+
+
+                    option.textContent =
+                        category;
+
+
+                    if (
+                        customMappings[
+                            merchant
+                        ] === category
+                    ) {
+
+                        option.selected =
+                            true;
+                    }
+
+
+                    select.appendChild(
+                        option
+                    );
+                }
+            );
+
+
+            const saveButton =
+                document.createElement(
+                    "button"
+                );
+
+
+            saveButton.className =
+                "secondary-btn";
+
+
+            saveButton.textContent =
+                "Speichern";
+
+
+            saveButton.addEventListener(
+                "click",
+                () => {
+
+                    const selected =
+                        select.value;
+
+
+                    if (selected) {
+
+                        customMappings[
+                            merchant
+                        ] = selected;
+
+                    } else {
+
+                        delete customMappings[
+                            merchant
+                        ];
+                    }
+
+
+                    saveMappings();
+
+
+                    data.forEach(
+                        row => {
+
+                            if (
+                                row.merchant ===
+                                merchant
+                            ) {
+
+                                row.category =
+                                    getCategory(
+                                        row.merchant,
+                                        row.activityName
+                                    );
+                            }
+                        }
+                    );
+
+
+                    saveButton.textContent =
+                        "Gespeichert";
+
+
+                    setTimeout(
+                        () => {
+
+                            saveButton.textContent =
+                                "Speichern";
+
+                        },
+                        1000
+                    );
+
+
+                    updateDashboard();
+                }
+            );
+
+
+            wrapper.appendChild(name);
+
+            wrapper.appendChild(
+                select
+            );
+
+            wrapper.appendChild(
+                saveButton
+            );
+
+
+            merchantSettingsList.appendChild(
+                wrapper
+            );
+        }
+    );
+}
+
+
+/* =========================================================
+   RESET DATEN
+========================================================= */
+
+resetDataButton.addEventListener(
+    "click",
+    () => {
+
+        data = [];
+
+
+        filters.month = "";
+        filters.date = "";
+        filters.category = "";
+        filters.merchant = "";
+
+        /*
+          CHF bleibt Standard.
+        */
+        filters.currency = "CHF";
+
+
+        csvFile.value =
+            "";
+
+
+        syncFilterControls();
+
+
+        activeFiltersEl.innerHTML =
+            "";
+
+
+        statusEl.className =
+            "status";
+
+
+        statusEl.textContent =
+            "Bitte Yuh-CSV auswählen.";
+
+
+        kpiTotal.textContent =
+            "0.00 CHF";
+
+
+        kpiTransactions.textContent =
+            "0";
+
+
+        kpiAverage.textContent =
+            "0.00 CHF";
+
+
+        kpiMerchants.textContent =
+            "0";
+
+
+        largestExpenses.innerHTML =
+            `<div class="empty">
+                Noch keine CSV geladen.
+            </div>`;
+
+
+        /*
+          Charts werden nicht zerstört.
+          Sie werden einfach geleert.
+        */
+
+        Object.values(charts)
+            .forEach(chart => {
+
+                if (!chart) {
+                    return;
+                }
+
+
+                chart.data.labels =
+                    [];
+
+
+                chart.data.datasets
+                    .forEach(
+                        dataset => {
+
+                            dataset.data =
+                                [];
+                        }
+                    );
+
+
+                chart.update("none");
+            });
+    }
+);
+
+
+/* =========================================================
+   START
+========================================================= */
+
+/*
+  Standardmässig CHF.
+*/
+filters.currency = "CHF";
+
+
+populateFilters();
+
+updateDashboard();
+
+handleHash();
+
+</script>
+
+</body>
+</html>
