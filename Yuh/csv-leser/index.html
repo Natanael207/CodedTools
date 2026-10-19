@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Yuh Ausgaben Dashboard</title>
 
-    <script src=".\lib\chart.umd.min.js"></script>
+    <script src="./lib/chart.umd.min.js"></script>
 
     <style>
         :root {
@@ -319,13 +319,113 @@
             padding: 20px;
         }
 
-        .settings-page {
-            display: none;
+        .top-nav {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+            flex-wrap: wrap;
         }
 
-        .settings-page.active {
-            display: block;
+        .nav-link {
+            display: inline-flex;
+            align-items: center;
+            min-height: 40px;
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: #fff;
+            color: var(--text);
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 600;
         }
+
+        .nav-link:hover { background: var(--accent-soft); }
+
+        .settings-page,
+        .secondary-page { display: none; }
+
+        .settings-page.active,
+        .secondary-page.active { display: block; }
+
+        .finance-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin: 16px 0;
+        }
+
+        .finance-controls label {
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .finance-controls select {
+            display: block;
+            min-width: 180px;
+            margin-top: 5px;
+            padding: 9px 11px;
+            border: 1px solid var(--border);
+            border-radius: 9px;
+            background: #fff;
+            color: var(--text);
+        }
+
+        .secondary-charts {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+            margin: 16px 0;
+        }
+
+        .page-table-wrap {
+            width: 100%;
+            overflow: auto;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+        }
+
+        .page-table {
+            width: 100%;
+            min-width: 850px;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        .page-table th, .page-table td {
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+
+        .page-table th {
+            position: sticky;
+            top: 0;
+            background: #f8fafc;
+            color: var(--muted);
+            font-size: 11px;
+            text-transform: uppercase;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            min-height: 42px;
+            margin-bottom: 14px;
+            padding: 9px 14px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: #fff;
+            color: var(--text);
+            text-decoration: none;
+            font-weight: 650;
+            box-shadow: 0 3px 10px rgba(15, 23, 42, .05);
+        }
+
+        .back-link:hover { background: var(--accent-soft); }
 
         #dashboardPage.hidden {
             display: none;
@@ -380,9 +480,10 @@
         }
 
         @media (max-width: 760px) {
-            .app {
-                padding: 10px;
-            }
+            .app { padding: 10px; }
+            header { align-items: flex-start; flex-direction: column; }
+            .top-nav { justify-content: flex-start; }
+            .secondary-charts { grid-template-columns: 1fr; }
 
             .filters,
             .charts {
@@ -423,12 +524,15 @@
                 <p>Deine Ausgaben übersichtlich analysiert</p>
             </div>
 
-            <a href="#einstellungen"
-               id="settingsButton"
-               class="icon-btn"
-               title="Kategorien verwalten">
-                ⚙️
-            </a>
+            <nav class="top-nav" aria-label="Hauptnavigation">
+                <a class="nav-link" href="#finanzen">Investments &amp; Kryptos</a>
+                <a class="nav-link" href="#zahlungen">Überweisungen</a>
+                <a href="#einstellungen"
+                   id="settingsButton"
+                   class="icon-btn"
+                   title="Kategorien verwalten"
+                   aria-label="Kategorien verwalten">⚙️</a>
+            </nav>
         </header>
 
         <section class="upload-card">
@@ -476,6 +580,13 @@
             </div>
 
             <div class="filter-box">
+                <label for="cardNumberFilter">Kartennummer</label>
+                <select id="cardNumberFilter">
+                    <option value="">Alle Kartennummern</option>
+                </select>
+            </div>
+
+            <div class="filter-box">
                 <label for="currencyFilter">Währung</label>
                 <select id="currencyFilter">
                     <option value="">Alle Währungen</option>
@@ -499,7 +610,7 @@
             </div>
 
             <div class="kpi">
-                <div class="kpi-label">Durchschnitt</div>
+                <div class="kpi-label">Durchschnittliche Ausgabe pro Transaktion</div>
                 <div id="kpiAverage" class="kpi-value">0.00 CHF</div>
             </div>
 
@@ -611,6 +722,63 @@
     </div>
 
 
+    <section id="financePage" class="secondary-page" aria-labelledby="financeTitle">
+        <a class="back-link secondary-btn" href="#">← Dashboard</a>
+        <div class="settings-card">
+            <h2 id="financeTitle">Investments &amp; Kryptos</h2>
+            <p class="status">Boni und Rewards sind hier bewusst ausgeblendet. Beträge werden in der jeweiligen Originalwährung ausgewiesen.</p>
+            <div class="finance-controls">
+                <label>Währung <select id="investmentCurrency"></select></label>
+                <label>Anlage <select id="investmentAsset"></select></label>
+                <label>Monat <select id="investmentMonth"></select></label>
+            </div>
+            <div class="secondary-charts">
+                <article class="chart-card">
+                    <div class="chart-head"><h2>Investiert vs. zurückerhalten / verkauft</h2><span>Nach Anlage</span></div>
+                    <div class="chart-container"><canvas id="investmentChart"></canvas></div>
+                </article>
+                <article class="chart-card">
+                    <div class="chart-head"><h2>Käufe und Verkäufe pro Monat</h2><span>Anlage und Monat auswählbar</span></div>
+                    <div class="chart-container"><canvas id="investmentMonthChart"></canvas></div>
+                </article>
+            </div>
+        </div>
+        <div class="settings-card">
+            <h3 class="page-section-title">Alle Investments &amp; Kryptowährungen</h3>
+            <div id="investmentTable"></div>
+        </div>
+        <div class="settings-card">
+            <h3 class="page-section-title">Währungswechsel</h3>
+            <div id="exchangeTable"></div>
+        </div>
+    </section>
+
+    <section id="transfersPage" class="secondary-page" aria-labelledby="transfersTitle">
+        <a class="back-link secondary-btn" href="#">← Dashboard</a>
+        <div class="settings-card">
+            <h2 id="transfersTitle">Überweisungen</h2>
+            <p class="status">Goal-Einzahlungen und -Abhebungen werden hier ignoriert.</p>
+            <div class="finance-controls">
+                <label>Währung <select id="transferCurrency"></select></label>
+                <label>Monat <select id="transferMonth"></select></label>
+            </div>
+            <div class="secondary-charts">
+                <article class="chart-card">
+                    <div class="chart-head"><h2>Ein- und Ausgänge pro Monat</h2><span>Monat anklicken zum Filtern</span></div>
+                    <div class="chart-container"><canvas id="transferMonthChart"></canvas></div>
+                </article>
+                <article class="chart-card">
+                    <div class="chart-head"><h2>Überweisungen nach Art</h2><span>Klick auf Diagrammsegment</span></div>
+                    <div class="chart-container"><canvas id="transferTypeChart"></canvas></div>
+                </article>
+            </div>
+        </div>
+        <div class="settings-card">
+            <h3 class="page-section-title">Ein- und ausgehende Überweisungen</h3>
+            <div id="transferTable"></div>
+        </div>
+    </section>
+
     <!-- SETTINGS -->
     <div id="settingsPage"
          class="settings-page">
@@ -655,14 +823,14 @@ const STORAGE_KEY =
 
 
 const CATEGORIES = [
-    "Essen",
-    "Transport",
-    "Shopping",
+    "TWINT",
+    "Lebensmittel & Essen",
+    "Transport & Mobilität",
+    "Kleidung & Shopping",
+    "Reisen & Hotels",
+    "Sport & Freizeit",
     "Abos",
-    "Reisen",
     "Bargeld",
-    "Freizeit",
-    "Kirche",
     "Sonstiges"
 ];
 
@@ -684,10 +852,15 @@ const charts = {
     category: null,
     merchant: null,
     monthly: null,
-    timeline: null
+    timeline: null,
+    investments: null,
+    investmentMonths: null,
+    transfersMonths: null,
+    transferTypes: null
 };
 
 
+let transactions = [];
 let data = [];
 let settingsMerchants = [];
 let customMappings = {};
@@ -707,6 +880,7 @@ const filters = {
     date: "",
     category: "",
     merchant: "",
+    cardNumber: "",
     currency: "CHF"
 };
 
@@ -732,6 +906,9 @@ const categoryFilter =
 
 const merchantFilter =
     document.getElementById("merchantFilter");
+
+const cardNumberFilter =
+    document.getElementById("cardNumberFilter");
 
 const currencyFilter =
     document.getElementById("currencyFilter");
@@ -794,8 +971,21 @@ function loadMappings() {
             );
 
         if (saved) {
-            customMappings =
-                JSON.parse(saved) || {};
+            customMappings = JSON.parse(saved) || {};
+            Object.keys(customMappings).forEach(merchant => {
+                const category = customMappings[merchant];
+                if (["Essen", "Lebensmittel", "Restaurants & Essen", "Snacks & Convenience"].includes(category)) {
+                    customMappings[merchant] = "Lebensmittel & Essen";
+                } else if (category === "Shopping") {
+                    customMappings[merchant] = "Kleidung & Shopping";
+                } else if (category === "Transport" || category === "Auto & Mobilität") {
+                    customMappings[merchant] = "Transport & Mobilität";
+                } else if (category === "Gesundheit") {
+                    customMappings[merchant] = "Sonstiges";
+                } else if (category === "Kirche" || category === "Spenden" || category === "Haushalt & Technik") {
+                    customMappings[merchant] = "Sonstiges";
+                }
+            });
         }
 
     } catch {
@@ -1478,122 +1668,14 @@ function defaultCategory(
 
 
     const rules = [
-
-        ["Essen", [
-            "aldi",
-            "migros",
-            "coop",
-            "lidl",
-            "denner",
-            "spar",
-            "volg",
-            "migrolino",
-            "aldi suisse",
-            "restaurant",
-            "cafe",
-            "café",
-            "bar",
-            "pizza",
-            "burger",
-            "mcdonald",
-            "starbucks",
-            "kebab",
-            "take away",
-            "takeaway",
-            "Grill Munich",
-            "K Kiosk",
-            "Selecta",
-            "SV Schweiz"
-        ]],
-
-        ["Transport", [
-            "sbb",
-            "cff",
-            "öbb",
-            "bahn",
-            "tram",
-            "bus",
-            "uber",
-            "taxi",
-            "bolt",
-            "parking",
-            "parkhaus",
-            "tankstelle",
-            "shell",
-            "bp",
-            "esso",
-            "Testcenter AGVS",
-            "WSB"
-        ]],
-
-        ["Shopping", [
-            "amazon",
-            "zalando",
-            "galaxus",
-            "digitec",
-            "h&m",
-            "ikea",
-            "zara",
-            "decathlon",
-            "interdiscount",
-            "media markt",
-            "JLCPCB",
-            "Jumbo",
-            "Brockenhaus",
-            "garitec"
-        ]],
-
-        ["Abos", [
-            "netflix",
-            "spotify",
-            "youtube premium",
-            "disney",
-            "prime video",
-            "apple.com/bill",
-            "icloud",
-            "chatgpt",
-            "openai",
-            "adobe"
-        ]],
-
-        ["Reisen", [
-            "booking.com",
-            "airbnb",
-            "hotel",
-            "easyjet",
-            "swiss international",
-            "lufthansa",
-            "ryanair",
-            "air france",
-            "flug",
-            "flight"
-        ]],
-
-        ["Bargeld", [
-            "atm",
-            "bancomat",
-            "cash withdrawal",
-            "cash"
-        ]],
-
-        ["Freizeit", [
-            "kino",
-            "cinema",
-            "steam",
-            "playstation",
-            "xbox",
-            "concert",
-            "konzert",
-            "museum",
-            "sport",
-            "fitness",
-            "Kraftreaktor"
-        ]],
-
-        ["Kirche", [
-            "Church",
-            "Kirche"
-        ]]
+        ["TWINT", ["twint"]],
+        ["Lebensmittel & Essen", ["coop", "aldi", "lidl", "migros", "volg", "spar", "denner", "selecta", "migrolino", "k kiosk", "k-kiosk", "avec", "grill munich", "sv schweiz", "mcdonald", "restaurant", "cafe", "bar", "pizza", "burger", "kebab", "take away", "gastro", "bilen can", "momentum church"]],
+        ["Transport & Mobilität", ["wsb", "sbb", "cff", "bahn", "tram", "bus", "uber", "taxi", "bolt", "parking", "parkhaus", "testcenter agvs", "garage", "tankstelle", "shell", "esso", "bp"]],
+        ["Kleidung & Shopping", ["garitec", "pvh", "we fashion", "ochsner sport", "zara", "h&m", "zalando", "decathlon", "jumbo", "interdiscount", "mediamarkt", "media markt", "digitec", "manor", "globus", "coop city", "migros shop", "fashion", "shopping", "brockenhaus", "second hand", "vinted", "ricardo", "ebay"]],
+        ["Reisen & Hotels", ["berghotel", "hotel", "airbnb", "booking", "easyjet", "swiss international", "lufthansa", "ryanair"]],
+        ["Sport & Freizeit", ["kraftreaktor", "fitness", "kino", "cinema", "museum", "concert", "konzert", "steam", "playstation", "xbox"]],
+        ["Abos", ["netflix", "spotify", "youtube premium", "disney", "prime video", "apple.com/bill", "icloud", "adobe"]],
+        ["Bargeld", ["atm", "bancomat", "cash withdrawal", "cash"]]
     ];
 
 
@@ -1623,6 +1705,9 @@ function getCategory(
     merchant,
     activityName
 ) {
+    if (/twint/i.test(`${merchant || ""} ${activityName || ""}`)) {
+        return "TWINT";
+    }
 
     if (
         customMappings[merchant]
@@ -1645,188 +1730,99 @@ function getCategory(
    DATEN AUFBEREITEN
 ========================================================= */
 
-function transformRows(rawRows) {
+function classifyRow(type, activityName, merchant) {
+    const name = `${activityName || ""} ${merchant || ""}`.toLowerCase();
 
-    return rawRows
+    if (type === "CARD_TRANSACTION_OUT") {
+        return { section: "expense", isExpense: true, category: getCategory(merchant, activityName) };
+    }
 
-        .map(row => {
+    if (type === "PAYMENT_TRANSACTION_OUT" && /twint/i.test(name)) {
+        return { section: "transfer", isExpense: true, category: "TWINT" };
+    }
 
-            const rawDate =
-                row["DATE"] ||
-                row["DATUM"] ||
-                row["DATE/TIME"] ||
-                "";
+    if (type === "PAYMENT_TRANSACTION_IN" || type === "PAYMENT_TRANSACTION_OUT") {
+        return { section: "transfer", isExpense: false,
+            category: type === "PAYMENT_TRANSACTION_IN" ? "Eingehende Überweisung" : "Ausgehende Überweisung" };
+    }
 
+    if (type.includes("REJECTED")) {
+        return { section: "other", isExpense: false, category: "Abgelehnt / nicht ausgeführt" };
+    }
 
-            const dateInfo =
-                parseDate(rawDate);
+    if (type.startsWith("INVEST_ORDER") || type.startsWith("INVEST_RECURRING_ORDER")) {
+        return { section: "investment", isExpense: false, category: "Investments & Kryptos" };
+    }
 
+    if (type === "BANK_AUTO_ORDER_EXECUTED" || type === "BANK_ORDER_EXECUTED") {
+        return { section: "exchange", isExpense: false, category: "Währungswechsel" };
+    }
 
-            const activityType =
-                row["ACTIVITY TYPE"] ||
-                row["ACTIVITY_TYPE"] ||
-                "";
-
-
-            const activityName =
-                row["ACTIVITY NAME"] ||
-                row["ACTIVITY_NAME"] ||
-                "";
-
-
-            const recipient =
-                row["RECIPIENT"] ||
-                "";
-
-
-            const sender =
-                row["SENDER"] ||
-                "";
-
-
-            const merchant =
-                cleanValue(
-                    recipient ||
-                    activityName ||
-                    sender ||
-                    "Unbekannt"
-                );
-
-
-            const debit =
-                parseAmount(
-                    row["DEBIT"] ||
-                    row["BETRAG"] ||
-                    row["AMOUNT"] ||
-                    0
-                );
-
-
-            const currency =
-                cleanValue(
-                    row["DEBIT CURRENCY"] ||
-                    row["CURRENCY"] ||
-                    row["WÄHRUNG"] ||
-                    "CHF"
-                );
-
-
-            const isExpense =
-                debit < 0 ||
-                String(activityType)
-                    .toUpperCase()
-                    .includes("OUT");
-
-
-            if (!isExpense) {
-                return null;
-            }
-
-
-            const amount =
-                Math.abs(debit);
-
-
-            if (amount <= 0) {
-                return null;
-            }
-
-
-            let month =
-                dateInfo.month;
-
-            let dateKey =
-                dateInfo.dateKey;
-
-            let dateText =
-                dateInfo.dateText;
-
-
-            if (!month) {
-
-                const fallback =
-                    String(rawDate)
-                        .match(
-                            /(\d{1,2})[.\/](\d{1,2})[.\/](\d{4})/
-                        );
-
-
-                if (fallback) {
-
-                    const day =
-                        Number(fallback[1]);
-
-                    const monthNumber =
-                        Number(fallback[2]);
-
-                    const year =
-                        Number(fallback[3]);
-
-
-                    month =
-                        `${year}-${String(
-                            monthNumber
-                        ).padStart(2, "0")}`;
-
-
-                    dateKey =
-                        `${String(day).padStart(
-                            2,
-                            "0"
-                        )}.${String(
-                            monthNumber
-                        ).padStart(
-                            2,
-                            "0"
-                        )}.${year}`;
-
-
-                    dateText =
-                        dateKey;
-                }
-            }
-
-
-            return {
-
-                date:
-                    dateInfo.date,
-
-                dateKey,
-
-                dateText,
-
-                month,
-
-                activityType,
-
-                activityName,
-
-                merchant,
-
-                currency,
-
-                amount,
-
-                category:
-                    getCategory(
-                        merchant,
-                        activityName
-                    ),
-
-                locality:
-                    cleanValue(
-                        row["LOCALITY"] ||
-                        ""
-                    ),
-
-                raw: row
-            };
-        })
-
-        .filter(Boolean);
+    // Goal movements and rewards intentionally do not enter expense,
+    // investment, or transfer pages.
+    return { section: "other", isExpense: false, category: "Sonstige Aktivität" };
 }
 
+
+function transformRows(rawRows) {
+    return rawRows.map(row => {
+        const rawDate = row["DATE"] || row["DATUM"] || row["DATE/TIME"] || "";
+        const dateInfo = parseDate(rawDate);
+        const activityType = cleanValue(row["ACTIVITY TYPE"] || row["ACTIVITY_TYPE"] || "");
+        const type = activityType.trim().toUpperCase();
+        const activityName = cleanValue(row["ACTIVITY NAME"] || row["ACTIVITY_NAME"] || "");
+        const recipient = cleanValue(row["RECIPIENT"] || "");
+        const sender = cleanValue(row["SENDER"] || "");
+        const cardNumber = cleanValue(row["CARD NUMBER"] || "");
+
+        const merchant = cleanValue(
+            type === "CARD_TRANSACTION_OUT"
+                ? (activityName || recipient || sender || "Unbekannt")
+                : (recipient || activityName || sender || "Unbekannt")
+        );
+
+        const debitRaw = cleanValue(row["DEBIT"] || row["BETRAG"] || row["AMOUNT"] || "");
+        const creditRaw = cleanValue(row["CREDIT"] || "");
+        const debit = debitRaw ? parseAmount(debitRaw) : null;
+        const credit = creditRaw ? parseAmount(creditRaw) : null;
+        const debitCurrency = cleanValue(row["DEBIT CURRENCY"] || row["CURRENCY"] || row["WÄHRUNG"] || "");
+        const creditCurrency = cleanValue(row["CREDIT CURRENCY"] || "");
+        const currency = debitCurrency || creditCurrency || "CHF";
+
+        const status = classifyRow(type, activityName, merchant);
+        const amount = Math.abs(debit !== null ? debit : (credit !== null ? credit : 0));
+
+        let month = dateInfo.month;
+        let dateKey = dateInfo.dateKey;
+        let dateText = dateInfo.dateText;
+
+        if (!month) {
+            const match = String(rawDate).match(/(\d{1,2})[.\/](\d{1,2})[.\/](\d{4})/);
+            if (match) {
+                const day = Number(match[1]);
+                const monthNumber = Number(match[2]);
+                const year = Number(match[3]);
+                month = `${year}-${String(monthNumber).padStart(2, "0")}`;
+                dateKey = `${String(day).padStart(2, "0")}.${String(monthNumber).padStart(2, "0")}.${year}`;
+                dateText = dateKey;
+            }
+        }
+
+        return {
+            date: dateInfo.date, dateKey, dateText, month,
+            activityType, type, activityName, merchant, recipient, sender,
+            cardNumber, debit, debitCurrency, credit, creditCurrency, currency,
+            amount, buySell: cleanValue(row["BUY/SELL"] || ""),
+            quantity: cleanValue(row["QUANTITY"] || ""),
+            asset: cleanValue(row["ASSET"] || ""),
+            pricePerUnit: cleanValue(row["PRICE PER UNIT"] || ""),
+            fees: cleanValue(row["FEES/COMMISSION"] || ""),
+            locality: cleanValue(row["LOCALITY"] || ""),
+            category: status.category, section: status.section,
+            isExpense: status.isExpense, raw: row
+        };
+    }).filter(row => row.type || row.dateText || row.activityName);
+}
 
 /* =========================================================
    FILTER
@@ -1881,6 +1877,13 @@ function matchesFilters(
         return false;
     }
 
+    if (
+        !options.ignoreCardNumber &&
+        filters.cardNumber &&
+        row.cardNumber !== filters.cardNumber
+    ) {
+        return false;
+    }
 
     return true;
 }
@@ -1959,12 +1962,12 @@ function populateFilters() {
 
 
     const currencies = [
-        ...new Set(
-            data
-                .map(row => row.currency)
-                .filter(Boolean)
-        )
+        ...new Set(data.map(row => row.currency).filter(Boolean))
     ].sort();
+
+    const cardNumbers = [
+        ...new Set(data.map(row => row.cardNumber).filter(Boolean))
+    ].sort((a, b) => a.localeCompare(b, "de"));
 
 
     monthFilter.innerHTML =
@@ -2079,6 +2082,14 @@ function populateFilters() {
     );
 
 
+    cardNumberFilter.innerHTML = `<option value="">Alle Kartennummern</option>`;
+    cardNumbers.forEach(cardNumber => {
+        const option = document.createElement("option");
+        option.value = cardNumber;
+        option.textContent = cardNumber;
+        cardNumberFilter.appendChild(option);
+    });
+
     currencyFilter.innerHTML =
         `<option value="">
             Alle Währungen
@@ -2152,6 +2163,9 @@ function syncFilterControls() {
     merchantFilter.value =
         filters.merchant;
 
+    cardNumberFilter.value =
+        filters.cardNumber;
+
     currencyFilter.value =
         filters.currency;
 }
@@ -2191,6 +2205,11 @@ function renderActiveFilters() {
         [
             "merchant",
             filters.merchant
+        ],
+
+        [
+            "cardNumber",
+            filters.cardNumber ? `Karte ${filters.cardNumber}` : ""
         ],
 
         [
@@ -2307,6 +2326,7 @@ function resetFilters() {
     filters.date = "";
     filters.category = "";
     filters.merchant = "";
+    filters.cardNumber = "";
 
     /*
       CHF wieder als Standard.
@@ -3591,6 +3611,467 @@ function updateKPIs() {
 
 
 /* =========================================================
+   EXTRA SEITEN: INVESTMENTS / FX / ÜBERWEISUNGEN
+========================================================= */
+
+function showCanvasMessage(key, canvasId, message) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const chart = charts[key] || (typeof Chart !== "undefined" ? Chart.getChart?.(canvas) : null);
+    if (chart) chart.destroy();
+    charts[key] = null;
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.max(1, rect.width * dpr);
+    canvas.height = Math.max(1, rect.height * dpr);
+    const ctx = canvas.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, rect.width, rect.height);
+    ctx.fillStyle = "#718096";
+    ctx.font = "14px Arial";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(message, rect.width / 2, rect.height / 2);
+}
+
+function investmentAsset(row) {
+    return row.asset || String(row.activityName || "Unbekannte Anlage")
+        .replace(/^\s*[\d.,]+\s*x\s*/i, "").trim();
+}
+
+function investmentSide(row) {
+    const side = String(row.buySell || "").trim().toUpperCase();
+    if (side.includes("SELL") || side.includes("VERKAUF")) return "sell";
+    if (side.includes("BUY") || side.includes("KAUF")) return "buy";
+    if (row.credit !== null && row.credit !== 0 && (row.debit === null || row.debit === 0)) return "sell";
+    if (row.debit !== null && row.debit !== 0) return "buy";
+    return "unknown";
+}
+
+function investmentValue(row, side = investmentSide(row)) {
+    if (side === "sell") {
+        if (row.credit !== null && row.credit !== 0) {
+            return {amount: Math.abs(row.credit), currency: row.creditCurrency || row.currency || "CHF"};
+        }
+        if (row.debit !== null) {
+            return {amount: Math.abs(row.debit), currency: row.debitCurrency || row.currency || "CHF"};
+        }
+    } else {
+        if (row.debit !== null && row.debit !== 0) {
+            return {amount: Math.abs(row.debit), currency: row.debitCurrency || row.currency || "CHF"};
+        }
+        if (row.credit !== null) {
+            return {amount: Math.abs(row.credit), currency: row.creditCurrency || row.currency || "CHF"};
+        }
+    }
+    return {amount: 0, currency: row.currency || "CHF"};
+}
+
+function formatByCurrency(rows, amountGetter) {
+    const totals = new Map();
+    rows.forEach(row => {
+        const item = amountGetter(row);
+        if (!item || !item.amount) return;
+        totals.set(item.currency, (totals.get(item.currency) || 0) + item.amount);
+    });
+    if (!totals.size) return "—";
+    return [...totals.entries()].sort((a,b) => a[0].localeCompare(b[0]))
+        .map(([currency, amount]) => formatMoney(amount, currency)).join(" · ");
+}
+
+function setPageSelect(select, label, values, preferred = "") {
+    const old = select.value;
+    select.replaceChildren();
+    const first = document.createElement("option");
+    first.value = "";
+    first.textContent = label;
+    select.appendChild(first);
+    values.forEach(value => {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = value;
+        select.appendChild(option);
+    });
+    if (values.includes(old)) select.value = old;
+    else if (values.includes(preferred)) select.value = preferred;
+    else select.value = "";
+}
+
+function pageTable(rows, mode) {
+    if (!rows.length) return '<div class="empty">Keine passenden Einträge in der CSV.</div>';
+
+    const investment = mode === "investment";
+    const fx = mode === "exchange";
+    const headings = investment
+        ? ["Datum", "Aktivität", "Kauf/Verkauf", "Anlage", "Menge", "Debit", "Credit", "Preis/Einheit", "Gebühren"]
+        : fx
+            ? ["Datum", "Aktivität", "Debit", "Debit-Währung", "Credit", "Credit-Währung", "Gebühren"]
+            : ["Datum", "Bewegung", "Absender", "Empfänger", "Debit", "Debit-Währung", "Credit", "Credit-Währung"];
+
+    const body = [...rows].sort((a,b) => (b.date?.getTime() || 0) - (a.date?.getTime() || 0))
+        .map(row => {
+            const date = escapeHtml(row.dateText || "—");
+            const activity = escapeHtml(row.activityName || row.type || "—");
+            const debit = row.debit === null ? "—" : escapeHtml(formatMoney(Math.abs(row.debit), row.debitCurrency || row.currency));
+            const credit = row.credit === null ? "—" : escapeHtml(formatMoney(Math.abs(row.credit), row.creditCurrency || row.currency));
+
+            if (investment) {
+                const side = investmentSide(row);
+                const sideText = side === "buy" ? "Kauf / investiert" : side === "sell" ? "Verkauf / zurückerhalten" : "Nicht erkannt";
+                return `<tr>
+                    <td>${date}</td><td>${activity}</td><td>${sideText}</td>
+                    <td>${escapeHtml(investmentAsset(row))}</td>
+                    <td>${escapeHtml(row.quantity || "—")}</td>
+                    <td>${debit}</td><td>${credit}</td>
+                    <td>${escapeHtml(row.pricePerUnit || "—")}</td>
+                    <td>${escapeHtml(row.fees || "—")}</td>
+                </tr>`;
+            }
+            if (fx) {
+                return `<tr><td>${date}</td><td>${activity}</td><td>${debit}</td>
+                    <td>${escapeHtml(row.debitCurrency || "—")}</td><td>${credit}</td>
+                    <td>${escapeHtml(row.creditCurrency || "—")}</td><td>${escapeHtml(row.fees || "—")}</td></tr>`;
+            }
+            return `<tr><td>${date}</td><td>${activity}</td>
+                <td>${escapeHtml(row.sender || "—")}</td><td>${escapeHtml(row.recipient || "—")}</td>
+                <td>${debit}</td><td>${escapeHtml(row.debitCurrency || "—")}</td>
+                <td>${credit}</td><td>${escapeHtml(row.creditCurrency || "—")}</td></tr>`;
+        }).join("");
+
+    return `<div class="page-table-wrap"><table class="page-table">
+        <thead><tr>${headings.map(item => `<th>${item}</th>`).join("")}</tr></thead>
+        <tbody>${body}</tbody></table></div>`;
+}
+
+function investmentRows() {
+    return transactions.filter(row => row.section === "investment");
+}
+
+function getDefaultInvestmentCurrency(rows = investmentRows()) {
+    const currencies = [...new Set(rows.map(row => investmentValue(row).currency).filter(Boolean))].sort();
+    return currencies.includes("CHF") ? "CHF" : (currencies[0] || "");
+}
+
+
+function getCurrencyForInvestmentAsset(asset, rows = investmentRows()) {
+    const counts = new Map();
+
+    rows.filter(row => investmentAsset(row) === asset).forEach(row => {
+        const currency = investmentValue(row).currency;
+        counts.set(currency, (counts.get(currency) || 0) + 1);
+    });
+
+    if (!counts.size) return getDefaultInvestmentCurrency(rows);
+
+    const defaultCurrency = getDefaultInvestmentCurrency(rows);
+    if (counts.has(defaultCurrency)) return defaultCurrency;
+
+    return [...counts.entries()]
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0][0];
+}
+
+
+function renderInvestmentPage() {
+    const rows = investmentRows();
+    const fxRows = transactions.filter(row => row.section === "exchange");
+    const assetSelect = document.getElementById("investmentAsset");
+    const monthSelect = document.getElementById("investmentMonth");
+    const currencySelect = document.getElementById("investmentCurrency");
+
+    const assets = [...new Set(rows.map(investmentAsset).filter(Boolean))]
+        .sort((a, b) => a.localeCompare(b, "de"));
+    const months = [...new Set(rows.map(row => row.month).filter(Boolean))].sort();
+    const currencies = [...new Set(rows.map(row => investmentValue(row).currency).filter(Boolean))].sort();
+    const defaultCurrency = getDefaultInvestmentCurrency(rows);
+
+    setPageSelect(currencySelect, "Alle Währungen", currencies, defaultCurrency);
+    setPageSelect(assetSelect, "Alle Anlagen", assets);
+    setPageSelect(monthSelect, "Alle Monate", months);
+
+    // A selected asset determines its currency; "Alle Anlagen" returns to the default.
+    currencySelect.value = assetSelect.value
+        ? getCurrencyForInvestmentAsset(assetSelect.value, rows)
+        : defaultCurrency;
+
+    document.getElementById("investmentTable").innerHTML = pageTable(rows, "investment");
+    document.getElementById("exchangeTable").innerHTML = pageTable(fxRows, "exchange");
+
+    renderInvestmentCharts();
+}
+
+
+function handleInvestmentAssetChange() {
+    const assetSelect = document.getElementById("investmentAsset");
+    const currencySelect = document.getElementById("investmentCurrency");
+    const rows = investmentRows();
+
+    currencySelect.value = assetSelect.value
+        ? getCurrencyForInvestmentAsset(assetSelect.value, rows)
+        : getDefaultInvestmentCurrency(rows);
+
+    renderInvestmentCharts();
+}
+
+
+function renderInvestmentCharts() {
+    const rows = investmentRows();
+    const currency = document.getElementById("investmentCurrency").value;
+    const selectedAsset = document.getElementById("investmentAsset").value;
+    const selectedMonth = document.getElementById("investmentMonth").value;
+    const currencies = [...new Set(rows.map(row => investmentValue(row).currency))];
+
+    if (!currency && currencies.length > 1) {
+        showCanvasMessage("investments", "investmentChart", "Währung auswählen – keine Währungen werden gemischt");
+        showCanvasMessage("investmentMonths", "investmentMonthChart", "Währung auswählen – keine Währungen werden gemischt");
+        return;
+    }
+
+    const selectedCurrency = currency || currencies[0] || "";
+
+    // Chart 1 keeps every asset visible. A selected month changes the period;
+    // a selected asset is highlighted, while the other assets remain muted.
+    const assetRows = rows.filter(row =>
+        (!selectedCurrency || investmentValue(row).currency === selectedCurrency) &&
+        (!selectedMonth || row.month === selectedMonth)
+    );
+
+    const assets = [...new Set(rows
+        .filter(row => !selectedCurrency || investmentValue(row).currency === selectedCurrency)
+        .map(investmentAsset))]
+        .sort((a, b) => a.localeCompare(b, "de"));
+
+    const buyValues = assets.map(asset => assetRows
+        .filter(row => investmentAsset(row) === asset && investmentSide(row) === "buy")
+        .reduce((sum, row) => sum + investmentValue(row, "buy").amount, 0));
+    const sellValues = assets.map(asset => assetRows
+        .filter(row => investmentAsset(row) === asset && investmentSide(row) === "sell")
+        .reduce((sum, row) => sum + investmentValue(row, "sell").amount, 0));
+
+    const assetBuyColors = assets.map(asset =>
+        selectedAsset && asset !== selectedAsset ? "rgba(148,163,184,.30)" : "#2563eb"
+    );
+    const assetSellColors = assets.map(asset =>
+        selectedAsset && asset !== selectedAsset ? "rgba(148,163,184,.30)" : "#f59e0b"
+    );
+    const assetBorders = assets.map(asset =>
+        selectedAsset === asset ? "#111827" : "rgba(100,116,139,.25)"
+    );
+    const assetBorderWidths = assets.map(asset =>
+        selectedAsset === asset ? 3 : 1
+    );
+
+    if (!selectedCurrency || !assets.length) {
+        showCanvasMessage("investments", "investmentChart", "Keine Investmentdaten");
+    } else {
+        updateChart("investments", "investmentChart", {
+            type: "bar",
+            data: {labels: assets, datasets: [
+                {
+                    label: "Investiert / gekauft",
+                    data: buyValues,
+                    backgroundColor: assetBuyColors,
+                    borderColor: assetBorders,
+                    borderWidth: assetBorderWidths,
+                    borderRadius: 5
+                },
+                {
+                    label: "Zurückerhalten / verkauft",
+                    data: sellValues,
+                    backgroundColor: assetSellColors,
+                    borderColor: assetBorders,
+                    borderWidth: assetBorderWidths,
+                    borderRadius: 5
+                }
+            ]},
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {callback: value => formatMoney(value, selectedCurrency)}
+                    }
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: c => `${c.dataset.label}: ${formatMoney(c.raw || 0, selectedCurrency)}`
+                        }
+                    }
+                },
+                onClick: (event, elements) => {
+                    if (!elements.length) return;
+                    const clicked = assets[elements[0].index];
+                    const select = document.getElementById("investmentAsset");
+                    select.value = select.value === clicked ? "" : clicked;
+                    handleInvestmentAssetChange();
+                }
+            }
+        });
+    }
+
+    // Chart 2 retains all months. The selected asset filters its series;
+    // the selected month is highlighted and all other months are dimmed.
+    const monthlyRows = rows.filter(row =>
+        (!selectedCurrency || investmentValue(row).currency === selectedCurrency) &&
+        (!selectedAsset || investmentAsset(row) === selectedAsset)
+    );
+
+    const months = [...new Set(rows
+        .filter(row => !selectedCurrency || investmentValue(row).currency === selectedCurrency)
+        .map(row => row.month)
+        .filter(Boolean))]
+        .sort();
+
+    const monthlyBuys = months.map(month => monthlyRows
+        .filter(row => row.month === month && investmentSide(row) === "buy")
+        .reduce((sum, row) => sum + investmentValue(row, "buy").amount, 0));
+    const monthlySells = months.map(month => monthlyRows
+        .filter(row => row.month === month && investmentSide(row) === "sell")
+        .reduce((sum, row) => sum + investmentValue(row, "sell").amount, 0));
+
+    const monthBuyColors = months.map(month =>
+        selectedMonth && month !== selectedMonth ? "rgba(148,163,184,.30)" : "#2563eb"
+    );
+    const monthSellColors = months.map(month =>
+        selectedMonth && month !== selectedMonth ? "rgba(148,163,184,.30)" : "#f59e0b"
+    );
+    const monthBorders = months.map(month =>
+        selectedMonth === month ? "#111827" : "rgba(100,116,139,.25)"
+    );
+    const monthBorderWidths = months.map(month =>
+        selectedMonth === month ? 3 : 1
+    );
+
+    if (!selectedCurrency || !months.length) {
+        showCanvasMessage("investmentMonths", "investmentMonthChart", "Keine Investmentdaten");
+    } else {
+        updateChart("investmentMonths", "investmentMonthChart", {
+            type: "bar",
+            data: {labels: months.map(monthLabel), datasets: [
+                {
+                    label: "Investiert / gekauft",
+                    data: monthlyBuys,
+                    backgroundColor: monthBuyColors,
+                    borderColor: monthBorders,
+                    borderWidth: monthBorderWidths,
+                    borderRadius: 5
+                },
+                {
+                    label: "Zurückerhalten / verkauft",
+                    data: monthlySells,
+                    backgroundColor: monthSellColors,
+                    borderColor: monthBorders,
+                    borderWidth: monthBorderWidths,
+                    borderRadius: 5
+                }
+            ]},
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {callback: value => formatMoney(value, selectedCurrency)}
+                    }
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: c => `${c.dataset.label}: ${formatMoney(c.raw || 0, selectedCurrency)}`
+                        }
+                    }
+                },
+                onClick: (event, elements) => {
+                    if (!elements.length) return;
+                    const month = months[elements[0].index];
+                    const select = document.getElementById("investmentMonth");
+                    select.value = select.value === month ? "" : month;
+                    renderInvestmentCharts();
+                }
+            }
+        });
+    }
+}
+
+function renderTransferPage() {
+    const allRows = transactions.filter(row => row.section === "transfer");
+    const currencySelect = document.getElementById("transferCurrency");
+    const monthSelect = document.getElementById("transferMonth");
+    const currencies = [...new Set(allRows.map(row => row.currency).filter(Boolean))].sort();
+    const months = [...new Set(allRows.map(row => row.month).filter(Boolean))].sort();
+
+    setPageSelect(currencySelect, "Alle Währungen", currencies, currencies.includes("CHF") ? "CHF" : (currencies[0] || ""));
+    setPageSelect(monthSelect, "Alle Monate", months);
+
+    const currency = currencySelect.value;
+    const filtered = allRows.filter(row =>
+        (!currency || row.currency === currency) &&
+        (!monthSelect.value || row.month === monthSelect.value)
+    );
+
+    const selectedCurrency = currency || currencies[0] || "";
+    const labels = months;
+    const inValues = labels.map(month => filtered
+        .filter(row => row.month === month && row.type === "PAYMENT_TRANSACTION_IN")
+        .reduce((sum,row) => sum + Math.abs(row.credit ?? row.debit ?? 0), 0));
+    const outValues = labels.map(month => filtered
+        .filter(row => row.month === month && row.type === "PAYMENT_TRANSACTION_OUT")
+        .reduce((sum,row) => sum + Math.abs(row.debit ?? row.credit ?? 0), 0));
+
+    if (selectedCurrency && labels.length) {
+        updateChart("transfersMonths", "transferMonthChart", {
+            type: "bar",
+            data: {labels: labels.map(monthLabel), datasets: [
+                {label: "Eingänge", data: inValues, backgroundColor: "#16a34a"},
+                {label: "Ausgänge", data: outValues, backgroundColor: "#dc2626"}
+            ]},
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: {y: {beginAtZero: true, ticks: {callback: value => formatMoney(value, selectedCurrency)}}},
+                onClick: (event, elements) => {
+                    if (!elements.length) return;
+                    const month = labels[elements[0].index];
+                    monthSelect.value = monthSelect.value === month ? "" : month;
+                    renderTransferPage();
+                }
+            }
+        });
+        const byType = [
+            filtered.filter(row => row.type === "PAYMENT_TRANSACTION_IN").reduce((sum,row)=>sum+Math.abs(row.credit ?? row.debit ?? 0),0),
+            filtered.filter(row => row.type === "PAYMENT_TRANSACTION_OUT").reduce((sum,row)=>sum+Math.abs(row.debit ?? row.credit ?? 0),0)
+        ];
+        updateChart("transferTypes", "transferTypeChart", {
+            type: "doughnut",
+            data: {labels: ["Eingehende Überweisung", "Ausgehende Überweisung"], datasets: [{
+                data: byType, backgroundColor: ["#16a34a", "#dc2626"], borderColor: "#fff", borderWidth: 2
+            }]},
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {tooltip: {callbacks: {label: c => `${c.label}: ${formatMoney(c.raw || 0, selectedCurrency)}`}}},
+                onClick: (event, elements) => {
+                    if (!elements.length) return;
+                    const type = elements[0].index === 0 ? "PAYMENT_TRANSACTION_IN" : "PAYMENT_TRANSACTION_OUT";
+                    const table = filtered.filter(row => row.type === type);
+                    document.getElementById("transferTable").innerHTML = pageTable(table, "transfer");
+                }
+            }
+        });
+    } else {
+        showCanvasMessage("transfersMonths", "transferMonthChart", "Keine Überweisungen in der CSV");
+        showCanvasMessage("transferTypes", "transferTypeChart", "Keine Überweisungen in der CSV");
+    }
+
+    document.getElementById("transferTable").innerHTML = pageTable(filtered, "transfer");
+}
+
+document.getElementById("investmentCurrency").addEventListener("change", renderInvestmentCharts);
+document.getElementById("investmentAsset").addEventListener("change", handleInvestmentAssetChange);
+document.getElementById("investmentMonth").addEventListener("change", renderInvestmentCharts);
+document.getElementById("transferCurrency").addEventListener("change", renderTransferPage);
+document.getElementById("transferMonth").addEventListener("change", renderTransferPage);
+
+/* =========================================================
    DASHBOARD
 ========================================================= */
 
@@ -3691,15 +4172,13 @@ csvFile.addEventListener(
 
 
                 if (!transformed.length) {
-
                     throw new Error(
-                        "Es wurden keine Ausgaben gefunden. Prüfe bitte das Yuh-CSV-Format."
+                        "Es wurden keine Transaktionen gefunden. Prüfe bitte das Yuh-CSV-Format."
                     );
                 }
 
-
-                data =
-                    transformed;
+                transactions = transformed;
+                data = transactions.filter(row => row.isExpense);
 
 
                 /*
@@ -3715,6 +4194,7 @@ csvFile.addEventListener(
                 filters.date = "";
                 filters.category = "";
                 filters.merchant = "";
+                filters.cardNumber = "";
                 filters.currency = "";
 
 
@@ -3764,9 +4244,9 @@ csvFile.addEventListener(
 
 
                 statusEl.textContent =
-                    `${data.length.toLocaleString(
+                    `${transactions.length.toLocaleString(
                         "de-CH"
-                    )} Ausgaben geladen.`;
+                    )} CSV-Zeilen geladen; ${data.length.toLocaleString("de-CH")} Ausgaben.`;
 
             } catch (error) {
 
@@ -3846,13 +4326,15 @@ categoryFilter.addEventListener(
 merchantFilter.addEventListener(
     "change",
     () => {
-
-        filters.merchant =
-            merchantFilter.value;
-
+        filters.merchant = merchantFilter.value;
         updateDashboard();
     }
 );
+
+cardNumberFilter.addEventListener("change", () => {
+    filters.cardNumber = cardNumberFilter.value;
+    updateDashboard();
+});
 
 
 currencyFilter.addEventListener(
@@ -3886,55 +4368,25 @@ largestCount.addEventListener(
    EINSTELLUNGEN
 ========================================================= */
 
-function openSettings() {
-
-    dashboardPage.classList.add(
-        "hidden"
-    );
-
-    settingsPage.classList.add(
-        "active"
-    );
-
-    renderSettings();
-}
-
-
-function closeSettings() {
-
-    settingsPage.classList.remove(
-        "active"
-    );
-
-    dashboardPage.classList.remove(
-        "hidden"
-    );
-
-    updateDashboard();
-}
-
-
 function handleHash() {
+    const hash = window.location.hash;
+    const finance = document.getElementById("financePage");
+    const transfers = document.getElementById("transfersPage");
 
-    if (
-        window.location.hash ===
-        "#einstellungen"
-    ) {
+    dashboardPage.classList.toggle(
+        "hidden",
+        ["#einstellungen", "#finanzen", "#zahlungen"].includes(hash)
+    );
+    settingsPage.classList.toggle("active", hash === "#einstellungen");
+    finance.classList.toggle("active", hash === "#finanzen");
+    transfers.classList.toggle("active", hash === "#zahlungen");
 
-        openSettings();
-
-    } else {
-
-        closeSettings();
-    }
+    if (hash === "#einstellungen") renderSettings();
+    if (hash === "#finanzen") renderInvestmentPage();
+    if (hash === "#zahlungen") renderTransferPage();
 }
 
-
-window.addEventListener(
-    "hashchange",
-    handleHash
-);
-
+window.addEventListener("hashchange", handleHash);
 
 backButton.addEventListener(
     "click",
@@ -4182,6 +4634,7 @@ resetDataButton.addEventListener(
     () => {
 
         data = [];
+        transactions = [];
 
 
         filters.month = "";
