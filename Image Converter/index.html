@@ -81,9 +81,9 @@ input[type=range]{width:100%;accent-color:#8fbd35}
         <div class="upload-icon">↥</div>
         <strong>Dateien hier ablegen</strong>
         <p>oder <u>Dateien auswählen</u> · mehrere Dateien möglich</p>
-        <div class="formats"><span class="pill">PNG</span><span class="pill">JPG</span><span class="pill">WEBP</span><span class="pill">HEIC</span><span class="pill">TIFF</span><span class="pill">GIF</span><span class="pill">PDF</span><span class="pill">+ mehr</span></div>
+        <div class="formats"><span class="pill">PNG</span><span class="pill">JPG</span><span class="pill">WEBP</span><span class="pill">TIFF</span><span class="pill">GIF</span><span class="pill">PDF</span><span class="pill">+ mehr</span></div>
       </div>
-      <input class="file-input" id="picker" type="file" multiple accept="image/*,.heic,.heif,.tif,.tiff,.ico,.pdf,.bmp">
+      <input class="file-input" id="picker" type="file" multiple accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,.tif,.tiff,.ico,.pdf">
       <div class="filehead"><span>Deine Dateien <small id="count">0 DATEIEN</small></span><button class="clear" id="clear">Alle entfernen</button></div>
       <div class="filelist" id="filelist"><div class="empty">Noch keine Dateien hinzugefügt</div></div>
     </section>
@@ -92,7 +92,6 @@ input[type=range]{width:100%;accent-color:#8fbd35}
         <select id="format">
           <option value="png">PNG · verlustfrei</option><option value="jpeg">JPG · kompakt</option><option value="webp">WebP · modern</option>
           <option value="bmp">BMP · unkomprimiert</option><option value="tiff">TIFF · unkomprimiert</option><option value="ico">ICO · Symbol</option>
-          <option value="heic">HEIC / HEIF · kompatibel</option>
         </select>
       </div>
       <div class="field" id="qualityField"><div class="labelrow"><span>Bildqualität</span><output id="qualityOut">88%</output></div><input id="quality" type="range" min="35" max="100" value="88"></div>
@@ -113,7 +112,6 @@ input[type=range]{width:100%;accent-color:#8fbd35}
 <script src="./lib/pdf.min.js"></script>
 <script src="./lib/jszip.min.js"></script>
 <script src="./lib/UTIF.js"></script>
-<script src="./lib/heic2any.min.js"></script>
 <script>
 (() => {
   const files=[], previews=new Map(); let chosenStyle='';
@@ -122,7 +120,13 @@ input[type=range]{width:100%;accent-color:#8fbd35}
   if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
   function toast(msg){const t=$('toast');t.textContent=msg;t.style.display='block';setTimeout(()=>t.style.display='none',2800)}
   function pretty(n){return n<1024?`${n} B`:n<1048576?`${(n/1024).toFixed(1)} KB`:`${(n/1048576).toFixed(1)} MB`}
-  function addFiles(incoming){for(const f of incoming){if(!files.some(x=>x.name===f.name&&x.size===f.size&&x.lastModified===f.lastModified))files.push(f)}render()}
+  function addFiles(incoming){
+    for(const f of incoming){
+      if(/\.(heic|heif)$/i.test(f.name)){toast('HEIC/HEIF-Dateien werden nicht unterstützt.');continue}
+      if(!files.some(x=>x.name===f.name&&x.size===f.size&&x.lastModified===f.lastModified))files.push(f);
+    }
+    render()
+  }
   function render(){
     $('count').textContent=`${files.length} DATEI${files.length===1?'':'EN'}`;
     if(!files.length){list.innerHTML='<div class="empty">Noch keine Dateien hinzugefügt</div>';return}
@@ -143,7 +147,7 @@ input[type=range]{width:100%;accent-color:#8fbd35}
   drop.addEventListener('drop',e=>addFiles([...e.dataTransfer.files]));
   $('quality').oninput=e=>$('qualityOut').textContent=e.target.value+'%';
   document.querySelectorAll('.mod').forEach(b=>b.onclick=()=>{document.querySelectorAll('.mod').forEach(x=>x.classList.remove('selected'));chosenStyle=chosenStyle===b.dataset.style?'':b.dataset.style;if(chosenStyle)b.classList.add('selected')});
-  $('format').onchange=()=>{$('qualityField').style.display=['jpeg','webp','heic'].includes($('format').value)?'block':'none'};
+  $('format').onchange=()=>{$('qualityField').style.display=['jpeg','webp'].includes($('format').value)?'block':'none'};
 
   const read= f=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(new Error('Datei konnte nicht gelesen werden'));r.readAsArrayBuffer(f)});
   function canvasFrom(w,h){const c=document.createElement('canvas');c.width=w;c.height=h;return c}
@@ -155,10 +159,6 @@ input[type=range]{width:100%;accent-color:#8fbd35}
       if(!window.UTIF)throw new Error('TIFF-Bibliothek konnte nicht geladen werden');
       const buf=await read(file),ifds=UTIF.decode(buf); if(!ifds.length)throw new Error('TIFF enthält kein Bild');
       UTIF.decodeImage(buf,ifds[0]);return drawImageData(UTIF.toRGBA8(ifds[0]),ifds[0].width,ifds[0].height)
-    }
-    if(['heic','heif'].includes(ext)){
-      if(!window.heic2any)throw new Error('HEIC-Bibliothek konnte nicht geladen werden');
-      const blob=await heic2any({blob:file,toType:'image/png'});return imageFromBlob(Array.isArray(blob)?blob[0]:blob)
     }
     if(ext==='ico'){
       const buffer=await read(file),view=new DataView(buffer),n=view.getUint16(4,true);
@@ -242,13 +242,9 @@ input[type=range]{width:100%;accent-color:#8fbd35}
     if(format==='bmp')return bmpBlob(c);
     if(format==='tiff'){if(!window.UTIF)throw new Error('TIFF-Encoder nicht geladen');return new Blob([UTIF.encodeImage(c.getContext('2d').getImageData(0,0,c.width,c.height).data.buffer,c.width,c.height)],{type:'image/tiff'})}
     if(format==='ico'){const png=await toBlob(c,'image/png'),b=await png.arrayBuffer(),buf=new ArrayBuffer(22+b.byteLength),v=new DataView(buf);v.setUint16(2,1,true);v.setUint16(4,1,true);v.setUint8(6,c.width>=256?0:c.width);v.setUint8(7,c.height>=256?0:c.height);v.setUint16(10,1,true);v.setUint16(12,32,true);v.setUint32(14,b.byteLength,true);v.setUint32(18,22,true);new Uint8Array(buf,22).set(new Uint8Array(b));return new Blob([buf],{type:'image/x-icon'})}
-    if(format==='heic'){
-      try{const m=await import('https://cdn.jsdelivr.net/npm/elheif@0.1.0/pkg/index.js');await m.ensureInitialized();const rgba=c.getContext('2d').getImageData(0,0,c.width,c.height).data;const r=m.jsEncodeImage(new Uint8Array(rgba),c.width,c.height);if(r.err)throw new Error(r.err);return new Blob([r.data],{type:'image/heic'})}
-      catch(e){throw new Error('HEIC-Export konnte nicht geladen werden. Bitte die Seite über HTTPS mit Internetzugriff öffnen.')}
-    }
     throw new Error('Unbekanntes Zielformat')
   }
-  function extFor(f){return f==='jpeg'?'jpg':f==='tiff'?'tif':f==='heic'?'heic':f}
+  function extFor(f){return f==='jpeg'?'jpg':f==='tiff'?'tif':f}
   function setProgress(p,msg){$('bar').style.width=p+'%';$('pct').textContent=Math.round(p)+'%';$('status').textContent=msg}
   $('convert').onclick=async()=>{
     if(!files.length){toast('Bitte zuerst Dateien hinzufügen.');return}
