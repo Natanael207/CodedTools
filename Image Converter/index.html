@@ -6,26 +6,26 @@
 <meta name="theme-color" content="#f7f7f3">
 <title>Pixelwerk — Bildkonverter</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap');
+
 :root{--bg:#f7f7f3;--ink:#1e2421;--muted:#727a73;--line:#e4e7df;--lime:#c9f36b;--lime2:#a9df42;--card:#fff;--shadow:0 18px 55px rgba(32,45,28,.07)}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Manrope,system-ui,sans-serif}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Arial,Helvetica,sans-serif}
 button,select,input{font:inherit}button{cursor:pointer}
 .wrap{max-width:1180px;margin:auto;padding:28px 28px 44px}
-.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:50px}
+.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
 .brand{display:flex;align-items:center;gap:11px;font-size:16px;font-weight:800;letter-spacing:-.5px}
 .mark{width:34px;height:34px;border-radius:11px;background:var(--lime);display:grid;place-items:center;font-size:18px}
 .privacy{font-family:'DM Mono',monospace;font-size:11px;color:#586050;background:#edf2e5;border:1px solid #e0e9d3;padding:9px 12px;border-radius:100px;display:flex;align-items:center;gap:7px}
 .dot{height:7px;width:7px;border-radius:50%;background:#73b42e}
-.hero{display:grid;grid-template-columns:1.15fr .85fr;align-items:end;gap:30px;margin-bottom:30px}
-.eyebrow{font:11px 'DM Mono',monospace;color:#78806f;text-transform:uppercase;letter-spacing:1.3px;margin-bottom:14px}
+.hero{display:none}
+.eyebrow{font:11px monospace;color:#78806f;text-transform:uppercase;letter-spacing:1.3px;margin-bottom:14px}
 h1{font-size:clamp(40px,6vw,68px);line-height:.99;letter-spacing:-4px;margin:0;font-weight:800}
 h1 span{color:#92bb41}
 .lead{max-width:360px;justify-self:end;color:var(--muted);font-size:14px;line-height:1.75;margin-bottom:4px}
 .workspace{background:var(--card);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);overflow:hidden}
-.tabs{height:60px;border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 24px;gap:24px}
+.tabs{display:none}
 .tab{height:60px;display:flex;align-items:center;font-size:12px;font-weight:700;color:#9aa099;position:relative}
 .tab.active{color:var(--ink)}.tab.active:after{content:"";height:3px;position:absolute;bottom:-1px;left:0;right:0;background:#a1d843;border-radius:4px}
-.tab .num{font:10px 'DM Mono';margin-right:8px;color:#9aa099}
+.tab .num{font:10px monospace;margin-right:8px;color:#9aa099}
 .workgrid{display:grid;grid-template-columns:minmax(0,1fr) 335px;min-height:460px}
 .left{padding:24px;border-right:1px solid var(--line)}
 .right{padding:25px 24px;background:#fcfcfa}
@@ -34,24 +34,24 @@ h1 span{color:#92bb41}
 .upload-icon{width:46px;height:46px;border-radius:15px;background:var(--lime);display:grid;place-items:center;font-size:23px;margin-bottom:12px}
 .dropzone strong{font-size:14px}.dropzone p{font-size:11px;color:var(--muted);margin:7px 0 0}
 .formats{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:14px}
-.pill{font:9px 'DM Mono',monospace;color:#7f8878;background:#f1f3ee;border-radius:5px;padding:5px 7px}
+.pill{font:9px monospace,monospace;color:#7f8878;background:#f1f3ee;border-radius:5px;padding:5px 7px}
 .file-input{display:none}
 .filehead{display:flex;align-items:center;justify-content:space-between;margin:22px 0 10px;font-size:12px;font-weight:800}
-.filehead small{font:10px 'DM Mono';font-weight:400;color:var(--muted)}
+.filehead small{font:10px monospace;font-weight:400;color:var(--muted)}
 .clear{border:0;background:none;color:#7e8977;font-size:11px;text-decoration:underline}
 .filelist{display:grid;gap:8px;max-height:210px;overflow:auto}
 .fileitem{display:flex;align-items:center;gap:11px;padding:9px 10px;border:1px solid #eceee8;border-radius:11px}
 .thumb{width:42px;height:42px;border-radius:8px;background:#eef1e8;object-fit:cover;flex:none}
 .fileinfo{min-width:0;flex:1}
 .filename{font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.meta{font:9px 'DM Mono';color:#92998e;margin-top:4px}
+.meta{font:9px monospace;color:#92998e;margin-top:4px}
 .remove{border:0;background:none;color:#a9afa5;font-size:18px;padding:4px}
 .empty{color:#9ba197;font-size:11px;text-align:center;padding:12px}
 .section-title{font-size:11px;font-weight:800;letter-spacing:.2px;margin:0 0 12px}
 .field{margin-bottom:22px}
 select{width:100%;padding:12px 12px;border:1px solid var(--line);border-radius:10px;background:white;color:var(--ink);font-size:12px;outline:none}
 .labelrow{display:flex;justify-content:space-between;align-items:center;font-size:10px;color:#7d857a;margin-bottom:8px}
-output{font:10px 'DM Mono';color:#424b3f}
+output{font:10px monospace;color:#424b3f}
 input[type=range]{width:100%;accent-color:#8fbd35}
 .mod-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
 .mod{border:1px solid var(--line);border-radius:9px;padding:9px 7px;background:#fff;color:#6c746a;text-align:center;font-size:10px;font-weight:700}
@@ -59,28 +59,22 @@ input[type=range]{width:100%;accent-color:#8fbd35}
 .note{font-size:9px;color:#8d9488;line-height:1.5;margin-top:9px}
 .convert{width:100%;border:0;border-radius:11px;padding:14px;background:var(--lime);font-size:12px;font-weight:800;display:flex;justify-content:center;gap:9px;align-items:center;transition:.15s}
 .convert:hover{background:var(--lime2);transform:translateY(-1px)}.convert:disabled{opacity:.55;cursor:wait;transform:none}
-.progress-wrap{display:none;margin-top:14px}.progress-text{font:10px 'DM Mono';color:#747c70;display:flex;justify-content:space-between;margin-bottom:7px}
+.progress-wrap{display:none;margin-top:14px}.progress-text{font:10px monospace;color:#747c70;display:flex;justify-content:space-between;margin-bottom:7px}
 .progress{height:5px;border-radius:5px;background:#edf0e8;overflow:hidden}.bar{height:100%;width:0;background:#9bcf3c;transition:width .2s}
 .result{display:none;margin-top:14px;padding:12px;background:#eff7e4;border-radius:10px;font-size:11px;line-height:1.6}
 .result button{border:0;background:none;text-decoration:underline;font-weight:800;color:#354d1f;padding:0}
-.footer{display:flex;justify-content:space-between;align-items:center;padding:16px 22px;border-top:1px solid var(--line);color:#8b9387;font:9px 'DM Mono'}
+.footer{display:none}
 .footer strong{color:#65705e;font-weight:500}
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#202721;color:white;border-radius:10px;padding:12px 16px;font-size:12px;display:none;z-index:4}
-@media(max-width:800px){.wrap{padding:20px 15px}.topbar{margin-bottom:35px}.hero{grid-template-columns:1fr;gap:14px}.lead{justify-self:start}.workgrid{grid-template-columns:1fr}.left{border-right:0;border-bottom:1px solid var(--line)}.right{padding:22px}.privacy{font-size:9px}.tabs{gap:14px;padding:0 16px}.tab{font-size:10px}}
+@media(max-width:800px){.wrap{padding:20px 15px}.topbar{margin-bottom:16px}.hero{grid-template-columns:1fr;gap:14px}.lead{justify-self:start}.workgrid{grid-template-columns:1fr}.left{border-right:0;border-bottom:1px solid var(--line)}.right{padding:22px}}
 </style>
 </head>
 <body>
 <div class="wrap">
 <header class="topbar">
-  <div class="brand"><div class="mark">✳</div>pixelwerk</div>
-  <div class="privacy"><span class="dot"></span> LOKAL VERARBEITET · DATEIEN BLEIBEN BEI DIR</div>
+  <div class="brand"><div class="mark">✳</div>Bildkonverter</div>
 </header>
-<section class="hero">
-  <div><div class="eyebrow">Dein kreatives Formatstudio</div><h1>Bilder rein.<br><span>Ideen raus.</span></h1></div>
-  <p class="lead">Konvertiere einzelne Bilder oder ganze Stapel. Verleihe ihnen einen neuen Look — direkt im Browser, ohne Upload.</p>
-</section>
 <main class="workspace">
-  <nav class="tabs"><div class="tab active"><span class="num">01</span>Hochladen</div><div class="tab"><span class="num">02</span>Anpassen</div><div class="tab"><span class="num">03</span>Exportieren</div></nav>
   <div class="workgrid">
     <section class="left">
       <div class="dropzone" id="drop">
@@ -104,17 +98,16 @@ input[type=range]{width:100%;accent-color:#8fbd35}
       <div class="field" id="qualityField"><div class="labelrow"><span>Bildqualität</span><output id="qualityOut">88%</output></div><input id="quality" type="range" min="35" max="100" value="88"></div>
       <div class="field"><h2 class="section-title">Style-Modifikatoren <span style="color:#9ba195;font-weight:500">· optional</span></h2>
         <div class="mod-grid">
-          <button class="mod" data-style="comic">✳ Comic</button><button class="mod" data-style="bw">◐ Schwarzweiss</button>
+          <button class="mod" data-style="comic">✳ Comic</button><button class="mod" data-style="anime">✦ Anime</button>
           <button class="mod" data-style="vintage">◌ Vintage</button><button class="mod" data-style="pixel">▦ Pixel-Art</button>
-          <button class="mod" data-style="invert">◑ Negativ</button><button class="mod" data-style="soft">✧ Soft Glow</button>
-        </div><div class="note">Ein Stil lässt sich gleichzeitig anwenden. PDF-Seiten werden einzeln als Bild exportiert. GIFs werden als Einzelbild (erster Frame) übernommen.</div>
+          <button class="mod" data-style="moody">◒ Moody</button><button class="mod" data-style="soft">✧ Soft Glow</button>
+        </div>
       </div>
       <button class="convert" id="convert"><span>Konvertierung starten</span><span>→</span></button>
       <div class="progress-wrap" id="progressWrap"><div class="progress-text"><span id="status">Wird vorbereitet …</span><span id="pct">0%</span></div><div class="progress"><div class="bar" id="bar"></div></div></div>
       <div class="result" id="result"></div>
     </aside>
   </div>
-  <footer class="footer"><span>PIXELWERK <strong>· BILDWERKSTATT</strong></span><span>DEINE DATEIEN BLEIBEN AUF DEINEM GERÄT</span></footer>
 </main>
 </div><div class="toast" id="toast"></div>
 <script src="./lib/pdf.min.js"></script>
@@ -186,15 +179,58 @@ input[type=range]{width:100%;accent-color:#8fbd35}
     const ctx=c.getContext('2d'),w=c.width,h=c.height;
     if(style==='pixel'){const scale=Math.max(1,Math.ceil(Math.max(w,h)/110));const small=canvasFrom(Math.max(1,Math.round(w/scale)),Math.max(1,Math.round(h/scale)));small.getContext('2d').drawImage(c,0,0,small.width,small.height);const out=canvasFrom(w,h),o=out.getContext('2d');o.imageSmoothingEnabled=false;o.drawImage(small,0,0,w,h);return out}
     const id=ctx.getImageData(0,0,w,h),d=id.data;
-    for(let i=0;i<d.length;i+=4){let r=d[i],g=d[i+1],b=d[i+2];
-      if(style==='bw'){const v=.299*r+.587*g+.114*b;d[i]=d[i+1]=d[i+2]=v}
+    for(let i=0;i<d.length;i+=4){
+      let r=d[i],g=d[i+1],b=d[i+2];
       if(style==='vintage'){d[i]=Math.min(255,.393*r+.769*g+.189*b);d[i+1]=Math.min(255,.349*r+.686*g+.168*b);d[i+2]=Math.min(255,.272*r+.534*g+.131*b)}
-      if(style==='invert'){d[i]=255-r;d[i+1]=255-g;d[i+2]=255-b}
       if(style==='soft'){d[i]=Math.min(255,r*1.07+8);d[i+1]=Math.min(255,g*1.04+8);d[i+2]=Math.min(255,b*1.02+8)}
-      if(style==='comic'){const gray=(r+g+b)/3,levels=gray>190?255:gray>110?175:gray>60?90:25;d[i]=Math.min(255,levels*(r/Math.max(gray,1))*0.78);d[i+1]=Math.min(255,levels*(g/Math.max(gray,1))*0.86);d[i+2]=Math.min(255,levels*(b/Math.max(gray,1))*1.1)}
-    }ctx.putImageData(id,0,0);
-    if(style==='comic'){const edges=canvasFrom(w,h),e=edges.getContext('2d');e.drawImage(c,0,0);const ed=e.getImageData(0,0,w,h),p=ed.data;for(let y=1;y<h-1;y+=2)for(let x=1;x<w-1;x+=2){let i=(y*w+x)*4,g=(p[i]+p[i+1]+p[i+2])/3,j=i+4,gg=(p[j]+p[j+1]+p[j+2])/3;if(Math.abs(g-gg)>42){p[i]=p[i+1]=p[i+2]=20}}e.putImageData(ed,0,0);return edges}
-    if(style==='soft'){const grad=ctx.createRadialGradient(w/2,h/2,Math.min(w,h)*.2,w/2,h/2,Math.max(w,h)*.75);grad.addColorStop(0,'rgba(255,255,255,0)');grad.addColorStop(1,'rgba(255,244,220,.22)');ctx.fillStyle=grad;ctx.fillRect(0,0,w,h)}
+      if(style==='comic'){
+        const gray=(r+g+b)/3,levels=gray>190?255:gray>110?175:gray>60?90:25;
+        d[i]=Math.min(255,levels*(r/Math.max(gray,1))*.78);
+        d[i+1]=Math.min(255,levels*(g/Math.max(gray,1))*.86);
+        d[i+2]=Math.min(255,levels*(b/Math.max(gray,1))*1.1)
+      }
+      if(style==='anime'){
+        const lum=.299*r+.587*g+.114*b;
+        const avg=(r+g+b)/3, sat=1.36, contrast=1.12;
+        r=avg+(r-avg)*sat; g=avg+(g-avg)*sat; b=avg+(b-avg)*sat;
+        r=(r-128)*contrast+138; g=(g-128)*contrast+138; b=(b-128)*contrast+138;
+        const q=lum>205?14:lum<55?12:22;
+        d[i]=Math.max(0,Math.min(255,Math.round(r/q)*q));
+        d[i+1]=Math.max(0,Math.min(255,Math.round(g/q)*q));
+        d[i+2]=Math.max(0,Math.min(255,Math.round(b/q)*q));
+      }
+      if(style==='moody'){
+        const lum=(r+g+b)/3, shade=lum<115?0.82:0.9;
+        d[i]=Math.max(0,Math.min(255,r*shade + (lum>150?12:0)));
+        d[i+1]=Math.max(0,Math.min(255,g*shade + (lum<120?5:0)));
+        d[i+2]=Math.max(0,Math.min(255,b*shade + (lum<150?15:0)))
+      }
+    }
+    ctx.putImageData(id,0,0);
+    if(style==='comic'){
+      const edges=canvasFrom(w,h),e=edges.getContext('2d');e.drawImage(c,0,0);
+      const ed=e.getImageData(0,0,w,h),p=ed.data;
+      for(let y=1;y<h-1;y+=2)for(let x=1;x<w-1;x+=2){
+        let i=(y*w+x)*4,g=(p[i]+p[i+1]+p[i+2])/3,j=i+4,gg=(p[j]+p[j+1]+p[j+2])/3;
+        if(Math.abs(g-gg)>42){p[i]=p[i+1]=p[i+2]=20}
+      }
+      e.putImageData(ed,0,0);return edges
+    }
+    if(style==='anime'){
+      const overlay=ctx.createLinearGradient(0,0,w,h);
+      overlay.addColorStop(0,'rgba(255,220,235,.08)');overlay.addColorStop(.5,'rgba(255,255,255,0)');overlay.addColorStop(1,'rgba(120,180,255,.08)');
+      ctx.fillStyle=overlay;ctx.fillRect(0,0,w,h)
+    }
+    if(style==='moody'){
+      const grad=ctx.createRadialGradient(w/2,h/2,Math.min(w,h)*.18,w/2,h/2,Math.max(w,h)*.72);
+      grad.addColorStop(0,'rgba(0,0,0,0)');grad.addColorStop(1,'rgba(4,12,24,.48)');
+      ctx.fillStyle=grad;ctx.fillRect(0,0,w,h)
+    }
+    if(style==='soft'){
+      const grad=ctx.createRadialGradient(w/2,h/2,Math.min(w,h)*.2,w/2,h/2,Math.max(w,h)*.75);
+      grad.addColorStop(0,'rgba(255,255,255,0)');grad.addColorStop(1,'rgba(255,244,220,.22)');
+      ctx.fillStyle=grad;ctx.fillRect(0,0,w,h)
+    }
     return c
   }
   function toBlob(c,type,quality){return new Promise((res,rej)=>c.toBlob(b=>b?res(b):rej(new Error('Dieses Exportformat wird vom Browser nicht unterstuetzt')),type,quality))}
