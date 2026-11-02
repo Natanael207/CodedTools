@@ -150,8 +150,9 @@
                     Mehrere Bilder werden als ZIP heruntergeladen. Unterstützt werden Bildformate,
                     die dein Browser öffnen kann; die Ausgabe ist immer PNG. Bis zu 32 räumlich
                     verteilte Wiederholungen. Kleinere Bilder erhalten automatisch weniger
-                    Wiederholungen und sind entsprechend weniger robust. Mindestgrösse: 128
-                    DCT-Blöcke, zum Beispiel 128 × 64 Pixel.
+                    Wiederholungen und sind entsprechend weniger robust. Gleicher Autor und
+                    gleicher Beschrieb ergeben dieselbe ID. Mindestgrösse: 128 DCT-Blöcke,
+                    zum Beispiel 128 × 64 Pixel.
                 </p>
             </section>
 
@@ -742,8 +743,6 @@
             if (description) {
                 payload.description = description;
             }
-
-            payload.timestamp = new Date().toISOString();
 
             const hash = new Uint8Array(
                 await crypto.subtle.digest(
