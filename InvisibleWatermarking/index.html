@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="de"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Unsichtbares Bild-Wasserzeichen</title>
+<style>
+:root{font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:#17212b;background:#f4f7fa}*{box-sizing:border-box}body{margin:0;padding:32px 18px}.wrap{max-width:1050px;margin:auto}h1{margin:0 0 8px;font-size:30px}.lead{color:#586675;margin:0 0 24px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px}.card{background:#fff;border:1px solid #e0e7ee;border-radius:14px;padding:22px;box-shadow:0 4px 18px #17324d0a}h2{font-size:20px;margin:0 0 18px}label{display:block;font-weight:600;margin:13px 0 6px}input[type=text],input[type=file]{width:100%;padding:11px;border:1px solid #cbd5df;border-radius:8px;background:#fff}button,.download{display:inline-block;border:0;border-radius:8px;background:#1769aa;color:white;padding:11px 16px;font-weight:700;cursor:pointer;margin-top:15px;text-decoration:none}button:disabled{opacity:.5;cursor:wait}.out{margin-top:16px;padding:13px;background:#f2f7fb;border-radius:8px;overflow-wrap:anywhere}.muted{font-size:13px;color:#687786;line-height:1.5}.status{margin-top:12px;color:#a33;white-space:pre-wrap}.ok{color:#16713b}canvas{display:none}.notice{margin-top:18px;padding:12px 15px;border-left:4px solid #e1a900;background:#fff9e8;color:#5c4a10;font-size:14px}
+</style>
+<div class="wrap">
+<h1>Unsichtbares Bild-Wasserzeichen</h1><p class="lead">Bildverarbeitung direkt in diesem Browser – keine Bilddatei wird hochgeladen.</p>
+<div class="grid">
+<section class="card"><h2>Wasserzeichen einbetten</h2>
+<label for="author">Autor</label><input id="author" type="text" placeholder="z. B. David">
+<label for="project">Projekt</label><input id="project" type="text" placeholder="z. B. ImageHub">
+<label for="infile">Bilddatei (PNG oder JPEG)</label><input id="infile" type="file" accept="image/png,image/jpeg">
+<button id="embed">Wasserzeichen einbetten</button><div id="embedout" class="out" hidden></div><div id="embedstatus" class="status"></div>
+<p class="muted">Verwendet 8×8-DCT-Blöcke, ein RS(16,8)-Codewort und 32 Bildregionen. Mindestgröße: 512×1024 Pixel (oder größer).</p></section>
+<section class="card"><h2>Wasserzeichen lesen</h2>
+<label for="readfile">Bild auswählen</label><input id="readfile" type="file" accept="image/png,image/jpeg">
+<button id="read">Wasserzeichen lesen</button><div id="readout" class="out" hidden></div><div id="readstatus" class="status"></div>
+<p class="muted">Die 32 Kopien werden bitweise zusammengeführt und das Reed-Solomon-Codewort geprüft. Die ID ist ein Fingerabdruck, nicht der eingebettete Autor-/Projekttext.</p></section>
+</div>
+<div class="notice">Robustheits-Hinweis: Das ist eine clientseitige Referenzimplementierung. DCT-Wasserzeichen können durch Skalierung, Beschnitt, starke Kompression oder Farbtransformationen verloren gehen; JPEG-Robustheit hängt zudem von Exportweg und Bildinhalt ab.</div>
+</div><canvas id="c"></canvas>
+<script>
+"use strict";
+const $=s=>document.querySelector(s), N=8, REPS=32, K=8, NSYM=8, TOTAL=16, BITS=TOTAL*8;
+function gfTables(){let exp=new Uint8Array(512),log=new Int16Array(256);let x=1;for(let i=0;i<255;i++){exp[i]=x;log[x]=i;x<<=1;if(x&256)x^=0x11d}for(let i=255;i<512;i++)exp[i]=exp[i-255];return{exp,log}}
+const GF=gfTables(), mul=(a,b)=>a&&b?GF.exp[GF.log[a]+GF.log[b]]:0;
+function polyMul(a,b){let r=new Uint8Array(a.length+b.length-1);for(let i=0;i<a.length;i++)for(let j=0;j<b.length;j++)r[i+j]^=mul(a[i],b[j]);return r}
+function rsGen(n){let g=Uint8Array.of(1);for(let i=0;i<n;i++)g=polyMul(g,Uint8Array.of(1,GF.exp[i]));return g}
+const GEN=rsGen(NSYM);
+function rsEncode(data){let out=new Uint8Array(TOTAL);out.set(data);let tmp=out.slice();for(let i=0;i<K;i++){let c=tmp[i];if(c)for(let j=0;j<GEN.length;j++)tmp[i+j]^=mul(GEN[j],c)}out.set(tmp.slice(K),K);return out}
+function syndromes(cw){let s=[];for(let i=0;i<NSYM;i++){let x=GF.exp[i],y=0;for(const b of cw)y=mul(y,x)^b;s.push(y)}return s}
+function rsCheck(cw){return syndromes(cw).every(x=>x===0)}
+function bytesToBits(a){let r=[];for(let b of a)for(let i=7;i>=0;i--)r.push((b>>i)&1);return r}
+function bitsToBytes(a){let r=new Uint8Array(Math.ceil(a.length/8));a.forEach((b,i)=>r[i>>3]|=(b&1)<<(7-(i&7)));return r}
+function dct(block){let out=new Float64Array(64);for(let u=0;u<8;u++)for(let v=0;v<8;v++){let s=0;for(let x=0;x<8;x++)for(let y=0;y<8;y++)s+=block[x*8+y]*Math.cos((2*x+1)*u*Math.PI/16)*Math.cos((2*y+1)*v*Math.PI/16);out[u*8+v]=.25*(u?1:Math.SQRT1_2)*(v?1:Math.SQRT1_2)*s}return out}
+function idct(co){let b=new Float64Array(64);for(let x=0;x<8;x++)for(let y=0;y<8;y++){let s=0;for(let u=0;u<8;u++)for(let v=0;v<8;v++)s+=(u?1:Math.SQRT1_2)*(v?1:Math.SQRT1_2)*co[u*8+v]*Math.cos((2*x+1)*u*Math.PI/16)*Math.cos((2*y+1)*v*Math.PI/16);b[x*8+y]=.25*s}return b}
+function getYBlock(data,w,bx,by){let a=new Float64Array(64);for(let x=0;x<8;x++)for(let y=0;y<8;y++){let i=((by*8+x)*w+bx*8+y)*4;a[x*8+y]=.299*data[i]+.587*data[i+1]+.114*data[i+2]-128}return a}
+function putYBlock(data,w,bx,by,b){for(let x=0;x<8;x++)for(let y=0;y<8;y++){let i=((by*8+x)*w+bx*8+y)*4,old=.299*data[i]+.587*data[i+1]+.114*data[i+2],ny=Math.max(0,Math.min(255,b[x*8+y]+128));let d=ny-old;data[i]=Math.max(0,Math.min(255,data[i]+d));data[i+1]=Math.max(0,Math.min(255,data[i+1]+d));data[i+2]=Math.max(0,Math.min(255,data[i+2]+d))}}
+function pair(data,w,bx,by,write,bit){let co=dct(getYBlock(data,w,bx,by)),a=co[2*8+3],b=co[3*8+2];if(write){let m=12;if(bit){if(a-b<m){let q=(m-(a-b))/2;co[19]+=q;co[26]-=q}}else if(b-a<m){let q=(m-(b-a))/2;co[19]-=q;co[26]+=q}putYBlock(data,w,bx,by,idct(co));return bit}return a>b?1:0}
+function regions(w,h){let cols=Math.floor(w/8),rows=Math.floor(h/8),out=[];for(let ry=0;ry<4;ry++)for(let rx=0;rx<8;rx++){let x0=Math.floor(rx*cols/8),x1=Math.floor((rx+1)*cols/8),y0=Math.floor(ry*rows/4),y1=Math.floor((ry+1)*rows/4);if(x1-x0<16||y1-y0<16)throw Error("Bild zu klein: Jede der 32 Regionen benötigt mindestens 16×16 DCT-Blöcke (Gesamtbild mindestens 1024×512 Pixel).");let arr=[];for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++)arr.push([x,y]);for(let i=arr.length-1;i>0;i--){let j=(i*7919+rx*31+ry*17)% (i+1);[arr[i],arr[j]]=[arr[j],arr[i]]}out.push(arr.slice(0,BITS))}return out}
+async function loadImage(file){let url=URL.createObjectURL(file);try{let im=new Image();im.src=url;await im.decode();let c=$("#c"),ctx=c.getContext("2d",{willReadFrequently:true});c.width=im.naturalWidth;c.height=im.naturalHeight;ctx.drawImage(im,0,0);return{c,ctx,w:c.width,h:c.height,img:ctx.getImageData(0,0,c.width,c.height)}}finally{URL.revokeObjectURL(url)}}
+$("#embed").onclick=async()=>{let st=$("#embedstatus"),out=$("#embedout"),btn=$("#embed");st.textContent="";out.hidden=true;try{let f=$("#infile").files[0];if(!f)throw Error("Bitte zuerst ein Bild auswählen.");let author=$("#author").value.trim(),project=$("#project").value.trim();if(!author||!project)throw Error("Bitte Autor und Projekt ausfüllen.");btn.disabled=true;st.textContent="Verarbeite Bild …";let payload={author,project,timestamp:new Date().toISOString()};let hash=new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(JSON.stringify(payload))));let id=hash.slice(0,8),cw=rsEncode(id),bits=bytesToBits(cw),im=await loadImage(f),regs=regions(im.w,im.h);for(let r=0;r<REPS;r++)for(let i=0;i<BITS;i++){let [x,y]=regs[r][i];pair(im.img.data,im.w,x,y,true,bits[i])}im.ctx.putImageData(im.img,0,0);let blob=await new Promise(res=>im.c.toBlob(res,"image/png"));let link=URL.createObjectURL(blob),hex=[...id].map(x=>x.toString(16).padStart(2,"0")).join("").toUpperCase();out.innerHTML="<b>ID:</b> "+hex+"<br><a class='download' download='watermarked.png' href='"+link+"'>Bild herunterladen</a>";out.hidden=false;st.textContent="Fertig. Das markierte Bild wird als PNG gespeichert.";st.className="status ok"}catch(e){st.textContent=e.message||String(e);st.className="status"}finally{btn.disabled=false}};
+$("#read").onclick=async()=>{let st=$("#readstatus"),out=$("#readout"),btn=$("#read");st.textContent="";out.hidden=true;try{let f=$("#readfile").files[0];if(!f)throw Error("Bitte zuerst ein Bild auswählen.");btn.disabled=true;st.textContent="Analysiere Bild …";let im=await loadImage(f),regs=regions(im.w,im.h),ones=new Uint16Array(BITS);for(let r=0;r<REPS;r++)for(let i=0;i<BITS;i++){let[x,y]=regs[r][i];ones[i]+=pair(im.img.data,im.w,x,y,false,0)}let bits=Array.from(ones,x=>x>REPS/2?1:0),cw=bitsToBytes(bits);if(!rsCheck(cw))throw Error("Kein Wasserzeichen gefunden (RS-Prüfung fehlgeschlagen).");let id=cw.slice(0,8),hex=[...id].map(x=>x.toString(16).padStart(2,"0")).join("").toUpperCase();out.innerHTML="<b>ID gefunden:</b> "+hex;out.hidden=false;st.textContent="Wasserzeichen erkannt.";st.className="status ok"}catch(e){st.textContent=e.message||String(e);st.className="status"}finally{btn.disabled=false}};
+</script></html>
