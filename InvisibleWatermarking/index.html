@@ -1,0 +1,1150 @@
+<!doctype html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Unsichtbares Bild-Wasserzeichen</title>
+    <style>
+        :root {
+            font-family: system-ui, -apple-system, Segoe UI, sans-serif;
+            color: #17212b;
+            background: #f4f7fa;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 32px 18px;
+        }
+
+        .wrap {
+            max-width: 1050px;
+            margin: auto;
+        }
+
+        h1 {
+            margin: 0 0 24px;
+            font-size: 30px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 18px;
+        }
+
+        .card {
+            padding: 22px;
+            border: 1px solid #e0e7ee;
+            border-radius: 14px;
+            background: #fff;
+            box-shadow: 0 4px 18px #17324d0a;
+        }
+
+        h2 {
+            margin: 0 0 18px;
+            font-size: 20px;
+        }
+
+        label {
+            display: block;
+            margin: 13px 0 6px;
+            font-weight: 600;
+        }
+
+        input[type="text"],
+        input[type="file"] {
+            width: 100%;
+            padding: 11px;
+            border: 1px solid #cbd5df;
+            border-radius: 8px;
+            background: #fff;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            margin-top: 14px;
+            font-weight: 500;
+        }
+
+        .checkbox-label input {
+            width: 17px;
+            height: 17px;
+            margin: 0;
+            accent-color: #1769aa;
+        }
+
+        button,
+        .download {
+            display: inline-block;
+            margin-top: 15px;
+            padding: 11px 16px;
+            border: 0;
+            border-radius: 8px;
+            background: #1769aa;
+            color: #fff;
+            font-weight: 700;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        button:disabled {
+            opacity: .5;
+            cursor: wait;
+        }
+
+        .out {
+            margin-top: 16px;
+            padding: 13px;
+            border-radius: 8px;
+            background: #f2f7fb;
+            overflow-wrap: anywhere;
+        }
+
+        .muted {
+            color: #687786;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .status {
+            margin-top: 12px;
+            color: #a33;
+            white-space: pre-wrap;
+        }
+
+        .ok {
+            color: #16713b;
+        }
+
+        .result-item {
+            margin: 0 0 8px;
+        }
+
+        .notice {
+            margin-top: 18px;
+            padding: 12px 15px;
+            border-left: 4px solid #e1a900;
+            background: #fff9e8;
+            color: #5c4a10;
+            font-size: 14px;
+        }
+
+        canvas {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <main class="wrap">
+        <h1>Unsichtbares Bild-Wasserzeichen</h1>
+
+        <div class="grid">
+            <section class="card">
+                <h2>Wasserzeichen einbetten</h2>
+
+                <label for="author">Autor</label>
+                <input id="author" type="text" placeholder="z. B. David">
+
+                <label for="description">Beschrieb (freiwillig)</label>
+                <input id="description" type="text" placeholder="z. B. ImageHub">
+
+                <label class="checkbox-label" for="includeTimestamp">
+                    <input id="includeTimestamp" type="checkbox">
+                    Zeitstempel in die ID einbeziehen
+                </label>
+
+                <label for="infile">Bilder auswählen</label>
+                <input id="infile" type="file" accept="image/*" multiple>
+
+                <button id="embed">Wasserzeichen einbetten</button>
+                <div id="embedout" class="out" hidden></div>
+                <div id="embedstatus" class="status"></div>
+
+                <p class="muted">
+                    Mehrere Bilder werden als ZIP heruntergeladen. Unterstützt werden Bildformate,
+                    die dein Browser öffnen kann; die Ausgabe ist immer PNG. Bis zu 32 räumlich
+                    verteilte Wiederholungen. Kleinere Bilder erhalten automatisch weniger
+                    Wiederholungen und sind entsprechend weniger robust. Ohne aktivierten
+                    Zeitstempel ergeben gleicher Autor und gleicher Beschrieb dieselbe ID.
+                    Mindestgrösse: 128 DCT-Blöcke, zum Beispiel 128 × 64 Pixel.
+                </p>
+            </section>
+
+            <section class="card">
+                <h2>Wasserzeichen lesen</h2>
+
+                <label for="readfile">Bild auswählen</label>
+                <input id="readfile" type="file" accept="image/*">
+
+                <button id="read">Wasserzeichen lesen</button>
+                <div id="readout" class="out" hidden></div>
+                <div id="readstatus" class="status"></div>
+
+                <p class="muted">
+                    Die Wiederholungen werden per Mehrheitsentscheid zusammengeführt. Der
+                    RS(16,8)-Decoder kann danach bis zu vier fehlerhafte Bytes korrigieren.
+                    Angezeigt wird die ID, nicht der Autor oder Beschrieb.
+                </p>
+            </section>
+        </div>
+
+        <div class="notice">
+            Hinweis: Kleinere Bilder haben weniger Redundanz und damit eine geringere
+            Robustheit. Skalierung, Beschnitt und starke Komprimierung können das Wasserzeichen
+            entfernen. Animierte Dateien werden als einzelnes Bild verarbeitet; die Ausgabe
+            ist ein PNG.
+        </div>
+    </main>
+
+    <canvas id="canvas"></canvas>
+
+    <script>
+        "use strict";
+
+        const $ = selector => document.querySelector(selector);
+        const BLOCK_SIZE = 8;
+        const REPEAT_LIMIT = 32;
+        const DATA_BYTES = 8;
+        const PARITY_BYTES = 8;
+        const CODEWORD_BYTES = DATA_BYTES + PARITY_BYTES;
+        const CODEWORD_BITS = CODEWORD_BYTES * 8;
+
+        let activeObjectUrls = [];
+
+        function clearObjectUrls() {
+            for (const url of activeObjectUrls) {
+                URL.revokeObjectURL(url);
+            }
+            activeObjectUrls = [];
+        }
+
+        function gfTables() {
+            const exp = new Uint8Array(512);
+            const log = new Int16Array(256);
+            let value = 1;
+
+            for (let i = 0; i < 255; i++) {
+                exp[i] = value;
+                log[value] = i;
+                value <<= 1;
+
+                if (value & 0x100) {
+                    value ^= 0x11d;
+                }
+            }
+
+            for (let i = 255; i < 512; i++) {
+                exp[i] = exp[i - 255];
+            }
+
+            return { exp, log };
+        }
+
+        const GF = gfTables();
+
+        function gfMultiply(a, b) {
+            if (a === 0 || b === 0) {
+                return 0;
+            }
+
+            return GF.exp[GF.log[a] + GF.log[b]];
+        }
+
+        function gfDivide(a, b) {
+            if (b === 0) {
+                throw new Error("RS-Decoder: Division durch null.");
+            }
+
+            if (a === 0) {
+                return 0;
+            }
+
+            return GF.exp[(GF.log[a] - GF.log[b] + 255) % 255];
+        }
+
+        function polynomialMultiply(a, b) {
+            const result = new Uint8Array(a.length + b.length - 1);
+
+            for (let i = 0; i < a.length; i++) {
+                for (let j = 0; j < b.length; j++) {
+                    result[i + j] ^= gfMultiply(a[i], b[j]);
+                }
+            }
+
+            return result;
+        }
+
+        function makeReedSolomonGenerator(parityBytes) {
+            let generator = Uint8Array.of(1);
+
+            for (let i = 0; i < parityBytes; i++) {
+                generator = polynomialMultiply(
+                    generator,
+                    Uint8Array.of(1, GF.exp[i])
+                );
+            }
+
+            return generator;
+        }
+
+        const RS_GENERATOR = makeReedSolomonGenerator(PARITY_BYTES);
+
+        function reedSolomonEncode(data) {
+            const codeword = new Uint8Array(CODEWORD_BYTES);
+            codeword.set(data);
+
+            const remainder = codeword.slice();
+
+            for (let i = 0; i < DATA_BYTES; i++) {
+                const coefficient = remainder[i];
+
+                if (coefficient !== 0) {
+                    for (let j = 0; j < RS_GENERATOR.length; j++) {
+                        remainder[i + j] ^=
+                            gfMultiply(RS_GENERATOR[j], coefficient);
+                    }
+                }
+            }
+
+            codeword.set(remainder.slice(DATA_BYTES), DATA_BYTES);
+            return codeword;
+        }
+
+        function reedSolomonSyndromes(codeword) {
+            const syndromes = [];
+
+            for (let i = 0; i < PARITY_BYTES; i++) {
+                const root = GF.exp[i];
+                let value = 0;
+
+                for (const byte of codeword) {
+                    value = gfMultiply(value, root) ^ byte;
+                }
+
+                syndromes.push(value);
+            }
+
+            return syndromes;
+        }
+
+        function reedSolomonDecode(input) {
+            const codeword = Uint8Array.from(input);
+            const syndromes = reedSolomonSyndromes(codeword);
+
+            if (syndromes.every(value => value === 0)) {
+                return { codeword, corrected: 0 };
+            }
+
+            // Berlekamp–Massey ermittelt das Fehler-Locator-Polynom.
+            let locator = [1];
+            let previous = [1];
+            let errorCount = 0;
+            let distance = 1;
+            let previousDiscrepancy = 1;
+
+            for (let n = 0; n < PARITY_BYTES; n++) {
+                let discrepancy = syndromes[n];
+
+                for (let i = 1; i <= errorCount; i++) {
+                    discrepancy ^=
+                        gfMultiply(locator[i] || 0, syndromes[n - i]);
+                }
+
+                if (discrepancy === 0) {
+                    distance++;
+                    continue;
+                }
+
+                const savedLocator = locator.slice();
+                const scale = gfDivide(discrepancy, previousDiscrepancy);
+
+                while (locator.length < previous.length + distance) {
+                    locator.push(0);
+                }
+
+                for (let i = 0; i < previous.length; i++) {
+                    locator[i + distance] ^=
+                        gfMultiply(scale, previous[i]);
+                }
+
+                if (2 * errorCount <= n) {
+                    errorCount = n + 1 - errorCount;
+                    previous = savedLocator;
+                    previousDiscrepancy = discrepancy;
+                    distance = 1;
+                } else {
+                    distance++;
+                }
+            }
+
+            if (errorCount === 0 || errorCount > PARITY_BYTES / 2) {
+                throw new Error(
+                    "Zu viele Fehler im Reed-Solomon-Codewort " +
+                    "(mehr als vier Bytes)."
+                );
+            }
+
+            // Chien-Suche findet die Positionen fehlerhafter Bytes.
+            const positions = [];
+            const locationValues = [];
+
+            for (let position = 0; position < CODEWORD_BYTES; position++) {
+                const value = GF.exp[CODEWORD_BYTES - 1 - position];
+                const inverse = GF.exp[(255 - GF.log[value]) % 255];
+
+                let evaluation = 0;
+                let power = 1;
+
+                for (let i = 0; i <= errorCount; i++) {
+                    evaluation ^= gfMultiply(locator[i] || 0, power);
+                    power = gfMultiply(power, inverse);
+                }
+
+                if (evaluation === 0) {
+                    positions.push(position);
+                    locationValues.push(value);
+                }
+            }
+
+            if (positions.length !== errorCount) {
+                throw new Error(
+                    "RS-Decoder konnte die Fehlerpositionen nicht eindeutig bestimmen."
+                );
+            }
+
+            // Fehlerwerte durch Lösen eines Gleichungssystems in GF(256).
+            const matrix = Array.from({ length: errorCount }, (_, row) => {
+                const powers = locationValues.map(value => {
+                    let result = 1;
+
+                    for (let i = 0; i < row; i++) {
+                        result = gfMultiply(result, value);
+                    }
+
+                    return result;
+                });
+
+                return [...powers, syndromes[row]];
+            });
+
+            for (let column = 0; column < errorCount; column++) {
+                let pivot = column;
+
+                while (
+                    pivot < errorCount &&
+                    matrix[pivot][column] === 0
+                ) {
+                    pivot++;
+                }
+
+                if (pivot === errorCount) {
+                    throw new Error(
+                        "RS-Decoder: singuläres Gleichungssystem."
+                    );
+                }
+
+                [matrix[column], matrix[pivot]] =
+                    [matrix[pivot], matrix[column]];
+
+                const inverse = GF.exp[
+                    (255 - GF.log[matrix[column][column]]) % 255
+                ];
+
+                for (let j = column; j <= errorCount; j++) {
+                    matrix[column][j] =
+                        gfMultiply(matrix[column][j], inverse);
+                }
+
+                for (let row = 0; row < errorCount; row++) {
+                    if (row === column) {
+                        continue;
+                    }
+
+                    const factor = matrix[row][column];
+
+                    if (factor !== 0) {
+                        for (let j = column; j <= errorCount; j++) {
+                            matrix[row][j] ^=
+                                gfMultiply(factor, matrix[column][j]);
+                        }
+                    }
+                }
+            }
+
+            for (let i = 0; i < errorCount; i++) {
+                codeword[positions[i]] ^= matrix[i][errorCount];
+            }
+
+            if (reedSolomonSyndromes(codeword).some(value => value !== 0)) {
+                throw new Error(
+                    "RS-Decoder: Codewort bleibt nach der Korrektur ungültig."
+                );
+            }
+
+            return { codeword, corrected: errorCount };
+        }
+
+        function bytesToBits(bytes) {
+            const bits = [];
+
+            for (const byte of bytes) {
+                for (let i = 7; i >= 0; i--) {
+                    bits.push((byte >> i) & 1);
+                }
+            }
+
+            return bits;
+        }
+
+        function bitsToBytes(bits) {
+            const bytes = new Uint8Array(Math.ceil(bits.length / 8));
+
+            bits.forEach((bit, index) => {
+                bytes[index >> 3] |=
+                    (bit & 1) << (7 - (index & 7));
+            });
+
+            return bytes;
+        }
+
+        function dct(block) {
+            const result = new Float64Array(64);
+
+            for (let u = 0; u < 8; u++) {
+                for (let v = 0; v < 8; v++) {
+                    let sum = 0;
+
+                    for (let x = 0; x < 8; x++) {
+                        for (let y = 0; y < 8; y++) {
+                            sum += block[x * 8 + y] *
+                                Math.cos((2 * x + 1) * u * Math.PI / 16) *
+                                Math.cos((2 * y + 1) * v * Math.PI / 16);
+                        }
+                    }
+
+                    const scaleU = u === 0 ? Math.SQRT1_2 : 1;
+                    const scaleV = v === 0 ? Math.SQRT1_2 : 1;
+
+                    result[u * 8 + v] = 0.25 * scaleU * scaleV * sum;
+                }
+            }
+
+            return result;
+        }
+
+        function inverseDct(coefficients) {
+            const block = new Float64Array(64);
+
+            for (let x = 0; x < 8; x++) {
+                for (let y = 0; y < 8; y++) {
+                    let sum = 0;
+
+                    for (let u = 0; u < 8; u++) {
+                        for (let v = 0; v < 8; v++) {
+                            const scaleU = u === 0 ? Math.SQRT1_2 : 1;
+                            const scaleV = v === 0 ? Math.SQRT1_2 : 1;
+
+                            sum += scaleU * scaleV *
+                                coefficients[u * 8 + v] *
+                                Math.cos((2 * x + 1) * u * Math.PI / 16) *
+                                Math.cos((2 * y + 1) * v * Math.PI / 16);
+                        }
+                    }
+
+                    block[x * 8 + y] = 0.25 * sum;
+                }
+            }
+
+            return block;
+        }
+
+        function getLuminanceBlock(data, width, blockX, blockY) {
+            const block = new Float64Array(64);
+
+            for (let x = 0; x < 8; x++) {
+                for (let y = 0; y < 8; y++) {
+                    const index =
+                        ((blockY * 8 + x) * width + blockX * 8 + y) * 4;
+
+                    block[x * 8 + y] =
+                        0.299 * data[index] +
+                        0.587 * data[index + 1] +
+                        0.114 * data[index + 2] -
+                        128;
+                }
+            }
+
+            return block;
+        }
+
+        function putLuminanceBlock(data, width, blockX, blockY, block) {
+            for (let x = 0; x < 8; x++) {
+                for (let y = 0; y < 8; y++) {
+                    const index =
+                        ((blockY * 8 + x) * width + blockX * 8 + y) * 4;
+
+                    const oldLuminance =
+                        0.299 * data[index] +
+                        0.587 * data[index + 1] +
+                        0.114 * data[index + 2];
+
+                    const newLuminance = Math.max(
+                        0,
+                        Math.min(255, block[x * 8 + y] + 128)
+                    );
+
+                    const difference = newLuminance - oldLuminance;
+
+                    data[index] = Math.max(
+                        0,
+                        Math.min(255, data[index] + difference)
+                    );
+                    data[index + 1] = Math.max(
+                        0,
+                        Math.min(255, data[index + 1] + difference)
+                    );
+                    data[index + 2] = Math.max(
+                        0,
+                        Math.min(255, data[index + 2] + difference)
+                    );
+                }
+            }
+        }
+
+        function readOrWriteBit(data, width, blockX, blockY, write, bit) {
+            const coefficients = dct(
+                getLuminanceBlock(data, width, blockX, blockY)
+            );
+
+            const coefficientA = coefficients[2 * 8 + 3];
+            const coefficientB = coefficients[3 * 8 + 2];
+
+            if (!write) {
+                return coefficientA > coefficientB ? 1 : 0;
+            }
+
+            const margin = 12;
+
+            if (bit === 1 && coefficientA - coefficientB < margin) {
+                const adjustment = (margin - (coefficientA - coefficientB)) / 2;
+                coefficients[19] += adjustment;
+                coefficients[26] -= adjustment;
+            } else if (
+                bit === 0 &&
+                coefficientB - coefficientA < margin
+            ) {
+                const adjustment = (margin - (coefficientB - coefficientA)) / 2;
+                coefficients[19] -= adjustment;
+                coefficients[26] += adjustment;
+            }
+
+            putLuminanceBlock(
+                data,
+                width,
+                blockX,
+                blockY,
+                inverseDct(coefficients)
+            );
+
+            return bit;
+        }
+
+        function greatestCommonDivisor(a, b) {
+            while (b !== 0) {
+                [a, b] = [b, a % b];
+            }
+
+            return a;
+        }
+
+        function makeWatermarkLayout(width, height) {
+            const columns = Math.floor(width / BLOCK_SIZE);
+            const rows = Math.floor(height / BLOCK_SIZE);
+            const totalBlocks = columns * rows;
+            const copies = Math.min(
+                REPEAT_LIMIT,
+                Math.floor(totalBlocks / CODEWORD_BITS)
+            );
+
+            if (copies < 1) {
+                throw new Error(
+                    "Bild zu klein. Es werden mindestens 128 DCT-Blöcke " +
+                    "benötigt, zum Beispiel bei 128 × 64 Pixeln."
+                );
+            }
+
+            // Eine Schrittweite teilt die Bildblöcke deterministisch und ohne
+            // Wiederholungen über die gesamte Bildfläche auf.
+            let stride = Math.floor(totalBlocks / 2) + 1;
+
+            while (greatestCommonDivisor(stride, totalBlocks) !== 1) {
+                stride++;
+            }
+
+            const offset = Math.floor(totalBlocks / 7) % totalBlocks;
+
+            return {
+                columns,
+                copies,
+                position(copyIndex, bitIndex) {
+                    const sequenceIndex = copyIndex * CODEWORD_BITS + bitIndex;
+                    const blockIndex =
+                        (offset + sequenceIndex * stride) % totalBlocks;
+
+                    return [
+                        blockIndex % columns,
+                        Math.floor(blockIndex / columns)
+                    ];
+                }
+            };
+        }
+
+        async function loadImageFile(file) {
+            const objectUrl = URL.createObjectURL(file);
+
+            try {
+                const image = new Image();
+                image.src = objectUrl;
+                await image.decode();
+
+                const canvas = $("#canvas");
+                const context = canvas.getContext("2d", {
+                    willReadFrequently: true
+                });
+
+                canvas.width = image.naturalWidth;
+                canvas.height = image.naturalHeight;
+                context.drawImage(image, 0, 0);
+
+                return {
+                    canvas,
+                    context,
+                    width: canvas.width,
+                    height: canvas.height,
+                    imageData: context.getImageData(
+                        0,
+                        0,
+                        canvas.width,
+                        canvas.height
+                    )
+                };
+            } finally {
+                URL.revokeObjectURL(objectUrl);
+            }
+        }
+
+        function canvasToPng(canvas) {
+            return new Promise((resolve, reject) => {
+                canvas.toBlob(blob => {
+                    if (blob) {
+                        resolve(blob);
+                    } else {
+                        reject(new Error("Das PNG konnte nicht erstellt werden."));
+                    }
+                }, "image/png");
+            });
+        }
+
+        function bytesToHex(bytes) {
+            return Array.from(bytes, byte =>
+                byte.toString(16).padStart(2, "0")
+            ).join("").toUpperCase();
+        }
+
+        async function watermarkFile(
+            file,
+            author,
+            description,
+            includeTimestamp
+        ) {
+            const payload = { author };
+
+            if (description) {
+                payload.description = description;
+            }
+
+            if (includeTimestamp) {
+                payload.timestamp = new Date().toISOString();
+            }
+
+            const hash = new Uint8Array(
+                await crypto.subtle.digest(
+                    "SHA-256",
+                    new TextEncoder().encode(JSON.stringify(payload))
+                )
+            );
+
+            const id = hash.slice(0, DATA_BYTES);
+            const codeword = reedSolomonEncode(id);
+            const bits = bytesToBits(codeword);
+            const image = await loadImageFile(file);
+            const layout = makeWatermarkLayout(image.width, image.height);
+
+            for (let copy = 0; copy < layout.copies; copy++) {
+                for (let bitIndex = 0; bitIndex < CODEWORD_BITS; bitIndex++) {
+                    const [blockX, blockY] =
+                        layout.position(copy, bitIndex);
+
+                    readOrWriteBit(
+                        image.imageData.data,
+                        image.width,
+                        blockX,
+                        blockY,
+                        true,
+                        bits[bitIndex]
+                    );
+                }
+            }
+
+            image.context.putImageData(image.imageData, 0, 0);
+
+            return {
+                name: file.name,
+                id: bytesToHex(id),
+                copies: layout.copies,
+                blob: await canvasToPng(image.canvas)
+            };
+        }
+
+        function crc32(bytes) {
+            let crc = 0xffffffff;
+
+            for (const byte of bytes) {
+                crc ^= byte;
+
+                for (let bit = 0; bit < 8; bit++) {
+                    crc = (crc >>> 1) ^
+                        (crc & 1 ? 0xedb88320 : 0);
+                }
+            }
+
+            return (crc ^ 0xffffffff) >>> 0;
+        }
+
+        function dosDateTime(date) {
+            const year = Math.max(1980, date.getFullYear());
+
+            return {
+                time:
+                    (date.getHours() << 11) |
+                    (date.getMinutes() << 5) |
+                    Math.floor(date.getSeconds() / 2),
+                date:
+                    ((year - 1980) << 9) |
+                    ((date.getMonth() + 1) << 5) |
+                    date.getDate()
+            };
+        }
+
+        async function makeZip(entries) {
+            const localParts = [];
+            const centralParts = [];
+            const now = dosDateTime(new Date());
+            let localOffset = 0;
+
+            for (const entry of entries) {
+                const nameBytes = new TextEncoder().encode(entry.fileName);
+                const data = new Uint8Array(await entry.blob.arrayBuffer());
+                const checksum = crc32(data);
+
+                const localHeader = new Uint8Array(30 + nameBytes.length);
+                const localView = new DataView(localHeader.buffer);
+
+                localView.setUint32(0, 0x04034b50, true);
+                localView.setUint16(4, 20, true);
+                localView.setUint16(6, 0x0800, true);
+                localView.setUint16(8, 0, true);
+                localView.setUint16(10, now.time, true);
+                localView.setUint16(12, now.date, true);
+                localView.setUint32(14, checksum, true);
+                localView.setUint32(18, data.length, true);
+                localView.setUint32(22, data.length, true);
+                localView.setUint16(26, nameBytes.length, true);
+                localView.setUint16(28, 0, true);
+                localHeader.set(nameBytes, 30);
+
+                const centralHeader = new Uint8Array(46 + nameBytes.length);
+                const centralView = new DataView(centralHeader.buffer);
+
+                centralView.setUint32(0, 0x02014b50, true);
+                centralView.setUint16(4, 20, true);
+                centralView.setUint16(6, 20, true);
+                centralView.setUint16(8, 0x0800, true);
+                centralView.setUint16(10, 0, true);
+                centralView.setUint16(12, now.time, true);
+                centralView.setUint16(14, now.date, true);
+                centralView.setUint32(16, checksum, true);
+                centralView.setUint32(20, data.length, true);
+                centralView.setUint32(24, data.length, true);
+                centralView.setUint16(28, nameBytes.length, true);
+                centralView.setUint16(30, 0, true);
+                centralView.setUint16(32, 0, true);
+                centralView.setUint16(34, 0, true);
+                centralView.setUint16(36, 0, true);
+                centralView.setUint32(38, 0, true);
+                centralView.setUint32(42, localOffset, true);
+                centralHeader.set(nameBytes, 46);
+
+                localParts.push(localHeader, data);
+                centralParts.push(centralHeader);
+                localOffset += localHeader.length + data.length;
+            }
+
+            const centralSize = centralParts.reduce(
+                (sum, part) => sum + part.length,
+                0
+            );
+            const endRecord = new Uint8Array(22);
+            const endView = new DataView(endRecord.buffer);
+
+            endView.setUint32(0, 0x06054b50, true);
+            endView.setUint16(4, 0, true);
+            endView.setUint16(6, 0, true);
+            endView.setUint16(8, entries.length, true);
+            endView.setUint16(10, entries.length, true);
+            endView.setUint32(12, centralSize, true);
+            endView.setUint32(16, localOffset, true);
+            endView.setUint16(20, 0, true);
+
+            return new Blob(
+                [...localParts, ...centralParts, endRecord],
+                { type: "application/zip" }
+            );
+        }
+
+        function outputFileName(originalName, usedNames) {
+            const stem = originalName
+                .replace(/\.[^.]*$/, "")
+                .replace(/[\\/:*?"<>|]/g, "_")
+                .trim() || "bild";
+
+            let candidate = `${stem}_watermarked.png`;
+            let suffix = 2;
+
+            while (usedNames.has(candidate.toLowerCase())) {
+                candidate = `${stem}_watermarked_${suffix}.png`;
+                suffix++;
+            }
+
+            usedNames.add(candidate.toLowerCase());
+            return candidate;
+        }
+
+        function addDownloadLink(container, blob, fileName, label) {
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+
+            activeObjectUrls.push(url);
+            link.className = "download";
+            link.href = url;
+            link.download = fileName;
+            link.textContent = label;
+            container.append(link);
+        }
+
+        $("#embed").addEventListener("click", async () => {
+            const button = $("#embed");
+            const status = $("#embedstatus");
+            const output = $("#embedout");
+            const files = Array.from($("#infile").files);
+            const author = $("#author").value.trim();
+            const description = $("#description").value.trim();
+            const includeTimestamp = $("#includeTimestamp").checked;
+
+            clearObjectUrls();
+            output.replaceChildren();
+            output.hidden = true;
+            status.className = "status";
+            status.textContent = "";
+
+            if (files.length === 0) {
+                status.textContent = "Bitte mindestens ein Bild auswählen.";
+                return;
+            }
+
+            if (!author) {
+                status.textContent = "Bitte den Autor ausfüllen.";
+                return;
+            }
+
+            button.disabled = true;
+            const successes = [];
+            const failures = [];
+            const usedNames = new Set();
+
+            try {
+                for (let i = 0; i < files.length; i++) {
+                    status.textContent =
+                        `Verarbeite Bild ${i + 1} von ${files.length}: ${files[i].name}`;
+
+                    try {
+                        const result = await watermarkFile(
+                            files[i],
+                            author,
+                            description,
+                            includeTimestamp
+                        );
+
+                        result.fileName = outputFileName(
+                            files[i].name,
+                            usedNames
+                        );
+                        successes.push(result);
+                    } catch (error) {
+                        failures.push({
+                            name: files[i].name,
+                            message: error.message || String(error)
+                        });
+                    }
+                }
+
+                if (successes.length === 0) {
+                    throw new Error(
+                        failures.map(item => `${item.name}: ${item.message}`).join("\n")
+                    );
+                }
+
+                for (const result of successes) {
+                    const item = document.createElement("p");
+                    item.className = "result-item";
+                    item.textContent =
+                        `${result.name} — ID: ${result.id} ` +
+                        `(${result.copies} Wiederholung(en))`;
+                    output.append(item);
+                }
+
+                if (files.length > 1) {
+                    status.textContent =
+                        `${successes.length} Bild(er) verarbeitet.` +
+                        (failures.length
+                            ? ` ${failures.length} Datei(en) übersprungen.`
+                            : "");
+
+                    const zipEntries = successes.map(result => ({
+                        fileName: result.fileName,
+                        blob: result.blob
+                    }));
+
+                    const zipBlob = await makeZip(zipEntries);
+                    addDownloadLink(
+                        output,
+                        zipBlob,
+                        "wasserzeichen_bilder.zip",
+                        "ZIP herunterladen"
+                    );
+                } else {
+                    status.textContent = "Bild verarbeitet.";
+                    addDownloadLink(
+                        output,
+                        successes[0].blob,
+                        successes[0].fileName,
+                        "PNG herunterladen"
+                    );
+                }
+
+                if (failures.length) {
+                    const errors = document.createElement("p");
+                    errors.className = "muted";
+                    errors.textContent = failures
+                        .map(item => `${item.name}: ${item.message}`)
+                        .join("\n");
+                    output.append(errors);
+                }
+
+                output.hidden = false;
+                status.classList.add("ok");
+            } catch (error) {
+                status.textContent = error.message || String(error);
+            } finally {
+                button.disabled = false;
+            }
+        });
+
+        $("#read").addEventListener("click", async () => {
+            const button = $("#read");
+            const status = $("#readstatus");
+            const output = $("#readout");
+            const file = $("#readfile").files[0];
+
+            clearObjectUrls();
+            output.replaceChildren();
+            output.hidden = true;
+            status.className = "status";
+            status.textContent = "";
+
+            if (!file) {
+                status.textContent = "Bitte zuerst ein Bild auswählen.";
+                return;
+            }
+
+            button.disabled = true;
+
+            try {
+                status.textContent = "Analysiere Bild …";
+
+                const image = await loadImageFile(file);
+                const layout = makeWatermarkLayout(
+                    image.width,
+                    image.height
+                );
+                const bitVotes = new Uint16Array(CODEWORD_BITS);
+
+                for (let copy = 0; copy < layout.copies; copy++) {
+                    for (let bitIndex = 0; bitIndex < CODEWORD_BITS; bitIndex++) {
+                        const [blockX, blockY] =
+                            layout.position(copy, bitIndex);
+
+                        bitVotes[bitIndex] += readOrWriteBit(
+                            image.imageData.data,
+                            image.width,
+                            blockX,
+                            blockY,
+                            false,
+                            0
+                        );
+                    }
+                }
+
+                const bits = Array.from(
+                    bitVotes,
+                    votes => votes > layout.copies / 2 ? 1 : 0
+                );
+                const receivedCodeword = bitsToBytes(bits);
+                const decoded = reedSolomonDecode(receivedCodeword);
+                const id = bytesToHex(
+                    decoded.codeword.slice(0, DATA_BYTES)
+                );
+
+                const result = document.createElement("p");
+                result.textContent = `ID gefunden: ${id}`;
+                output.append(result);
+
+                if (decoded.corrected > 0) {
+                    const detail = document.createElement("p");
+                    detail.className = "muted";
+                    detail.textContent =
+                        `RS-Decoder hat ${decoded.corrected} fehlerhafte ` +
+                        "Bytes korrigiert.";
+                    output.append(detail);
+                }
+
+                output.hidden = false;
+                status.textContent =
+                    `${layout.copies} Wiederholung(en) ausgewertet.`;
+                status.classList.add("ok");
+            } catch (error) {
+                status.textContent =
+                    `Kein Wasserzeichen gefunden. ${error.message || error}`;
+            } finally {
+                button.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
