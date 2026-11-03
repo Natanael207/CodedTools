@@ -187,9 +187,11 @@
                 <div id="readstatus" class="status"></div>
 
                 <p class="muted">
-                    Die Wiederholungen werden per Mehrheitsentscheid zusammengeführt. Der
-                    RS(16,8)-Decoder kann danach bis zu vier fehlerhafte Bytes korrigieren.
-                    Angezeigt wird die ID, nicht der Autor oder Beschrieb.
+                    Vier Bildbereiche werden unabhängig gelesen und gültige Ergebnisse per
+                    Prüfsumme und Mehrheitsentscheid abgeglichen. Die Skalierungsnormalisierung
+                    hilft bei proportionaler Grössenänderung; Beschnitt, Drehung und starke
+                    Komprimierung können das Wasserzeichen weiterhin entfernen. Angezeigt wird
+                    die ID, nicht der Autor oder Beschrieb.
                 </p>
             </section>
         </div>
@@ -210,7 +212,7 @@
         const $ = selector => document.querySelector(selector);
         const BLOCK_SIZE = 8;
         const REPEAT_LIMIT = 32;
-        const DATA_BYTES = 8;
+        const DATA_BYTES = 12;
         const PARITY_BYTES = 8;
         const CODEWORD_BYTES = DATA_BYTES + PARITY_BYTES;
         const CODEWORD_BITS = CODEWORD_BYTES * 8;
@@ -629,7 +631,7 @@
                 return coefficientA > coefficientB ? 1 : 0;
             }
 
-            const margin = 12;
+            const margin = 24;
 
             if (bit === 1 && coefficientA - coefficientB < margin) {
                 const adjustment = (margin - (coefficientA - coefficientB)) / 2;
@@ -757,6 +759,143 @@
             ).join("").toUpperCase();
         }
 
+        function canonicalTileSize(tileWidth, tileHeight) {
+            const longest = 384;
+            const aspect = tileWidth / tileHeight;
+
+            if (aspect >= 1) {
+                return {
+                    width: longest,
+                    height: Math.max(
+                        128,
+                        Math.round((longest / aspect) / 8) * 8
+                    )
+                };
+            }
+
+            return {
+                width: Math.max(
+                    128,
+                    Math.round((longest * aspect) / 8) * 8
+                ),
+                height: longest
+            };
+        }
+
+        function imageTiles(width, height) {
+            const tiles = [];
+
+            for (let row = 0; row < 2; row++) {
+                for (let column = 0; column < 2; column++) {
+                    const x0 = Math.floor(column * width / 2);
+                    const x1 = Math.floor((column + 1) * width / 2);
+                    const y0 = Math.floor(row * height / 2);
+                    const y1 = Math.floor((row + 1) * height / 2);
+
+                    tiles.push({
+                        x: x0,
+                        y: y0,
+                        width: x1 - x0,
+                        height: y1 - y0
+                    });
+                }
+            }
+
+            return tiles;
+        }
+
+        function makeTileCanvas(sourceCanvas, tile, targetWidth, targetHeight) {
+            const canvas = document.createElement("canvas");
+            canvas.width = targetWidth;
+            canvas.height = targetHeight;
+
+            const context = canvas.getContext("2d", {
+                willReadFrequently: true
+            });
+
+            context.imageSmoothingEnabled = true;
+            context.imageSmoothingQuality = "high";
+            context.drawImage(
+                sourceCanvas,
+                tile.x,
+                tile.y,
+                tile.width,
+                tile.height,
+                0,
+                0,
+                targetWidth,
+                targetHeight
+            );
+
+            return { canvas, context };
+        }
+
+        function embedCodeword(imageData, width, height, codeword) {
+            const layout = makeWatermarkLayout(width, height);
+            const bits = bytesToBits(codeword);
+
+            for (let copy = 0; copy < layout.copies; copy++) {
+                for (let bitIndex = 0; bitIndex < CODEWORD_BITS; bitIndex++) {
+                    const [blockX, blockY] =
+                        layout.position(copy, bitIndex);
+
+                    readOrWriteBit(
+                        imageData.data,
+                        width,
+                        blockX,
+                        blockY,
+                        true,
+                        bits[bitIndex]
+                    );
+                }
+            }
+
+            return layout.copies;
+        }
+
+        function decodeCodeword(imageData, width, height) {
+            const layout = makeWatermarkLayout(width, height);
+            const bitVotes = new Uint16Array(CODEWORD_BITS);
+
+            for (let copy = 0; copy < layout.copies; copy++) {
+                for (let bitIndex = 0; bitIndex < CODEWORD_BITS; bitIndex++) {
+                    const [blockX, blockY] =
+                        layout.position(copy, bitIndex);
+
+                    bitVotes[bitIndex] += readOrWriteBit(
+                        imageData.data,
+                        width,
+                        blockX,
+                        blockY,
+                        false,
+                        0
+                    );
+                }
+            }
+
+            const bits = Array.from(
+                bitVotes,
+                votes => votes > layout.copies / 2 ? 1 : 0
+            );
+
+            const decoded = reedSolomonDecode(bitsToBytes(bits));
+            const payload = decoded.codeword.slice(0, DATA_BYTES);
+            const id = payload.slice(0, 8);
+            const expectedChecksum =
+                new DataView(payload.buffer, payload.byteOffset, payload.byteLength)
+                    .getUint32(8, false);
+
+            if (crc32(id) !== expectedChecksum) {
+                throw new Error("Prüfsumme stimmt nicht.");
+            }
+
+            return {
+                id: bytesToHex(id),
+                corrected: decoded.corrected,
+                copies: layout.copies
+            };
+        }
+
         async function watermarkFile(
             file,
             author,
@@ -780,25 +919,125 @@
                 )
             );
 
-            const id = hash.slice(0, DATA_BYTES);
-            const codeword = reedSolomonEncode(id);
-            const bits = bytesToBits(codeword);
+            const id = hash.slice(0, 8);
+            const watermarkPayload = new Uint8Array(DATA_BYTES);
+            watermarkPayload.set(id, 0);
+            new DataView(watermarkPayload.buffer).setUint32(
+                8,
+                crc32(id),
+                false
+            );
+
+            const codeword = reedSolomonEncode(watermarkPayload);
             const image = await loadImageFile(file);
-            const layout = makeWatermarkLayout(image.width, image.height);
 
-            for (let copy = 0; copy < layout.copies; copy++) {
-                for (let bitIndex = 0; bitIndex < CODEWORD_BITS; bitIndex++) {
-                    const [blockX, blockY] =
-                        layout.position(copy, bitIndex);
+            if (image.width < 512 || image.height < 512) {
+                throw new Error(
+                    "Bild zu klein. Für vier robuste Bildbereiche werden " +
+                    "mindestens 512 × 512 Pixel benötigt."
+                );
+            }
 
-                    readOrWriteBit(
-                        image.imageData.data,
-                        image.width,
-                        blockX,
-                        blockY,
-                        true,
-                        bits[bitIndex]
+            let totalCopies = 0;
+
+            for (const tile of imageTiles(image.width, image.height)) {
+                const size = canonicalTileSize(tile.width, tile.height);
+                const normalized = makeTileCanvas(
+                    image.canvas,
+                    tile,
+                    size.width,
+                    size.height
+                );
+                const base = normalized.context.getImageData(
+                    0,
+                    0,
+                    size.width,
+                    size.height
+                );
+                const marked = new ImageData(
+                    new Uint8ClampedArray(base.data),
+                    size.width,
+                    size.height
+                );
+
+                totalCopies += embedCodeword(
+                    marked,
+                    size.width,
+                    size.height,
+                    codeword
+                );
+
+                // Die Einbettung wird als kleine Differenz zurück auf das
+                // Original gelegt, damit die Bilddetails nicht verkleinert
+                // oder weichgezeichnet werden.
+                const deltaCanvas = document.createElement("canvas");
+                deltaCanvas.width = size.width;
+                deltaCanvas.height = size.height;
+                const deltaContext = deltaCanvas.getContext("2d");
+
+                const deltaImage = deltaContext.createImageData(
+                    size.width,
+                    size.height
+                );
+
+                for (let i = 0; i < base.data.length; i += 4) {
+                    deltaImage.data[i] = Math.max(
+                        0,
+                        Math.min(255, 128 + marked.data[i] - base.data[i])
                     );
+                    deltaImage.data[i + 1] = Math.max(
+                        0,
+                        Math.min(255, 128 + marked.data[i + 1] - base.data[i + 1])
+                    );
+                    deltaImage.data[i + 2] = Math.max(
+                        0,
+                        Math.min(255, 128 + marked.data[i + 2] - base.data[i + 2])
+                    );
+                    deltaImage.data[i + 3] = 255;
+                }
+
+                deltaContext.putImageData(deltaImage, 0, 0);
+
+                const scaledDelta = document.createElement("canvas");
+                scaledDelta.width = tile.width;
+                scaledDelta.height = tile.height;
+                const scaledContext = scaledDelta.getContext("2d", {
+                    willReadFrequently: true
+                });
+                scaledContext.imageSmoothingEnabled = true;
+                scaledContext.imageSmoothingQuality = "high";
+                scaledContext.drawImage(
+                    deltaCanvas,
+                    0,
+                    0,
+                    tile.width,
+                    tile.height
+                );
+
+                const expandedDelta = scaledContext.getImageData(
+                    0,
+                    0,
+                    tile.width,
+                    tile.height
+                );
+
+                for (let y = 0; y < tile.height; y++) {
+                    for (let x = 0; x < tile.width; x++) {
+                        const srcIndex = (y * tile.width + x) * 4;
+                        const dstIndex =
+                            ((tile.y + y) * image.width + tile.x + x) * 4;
+
+                        for (let channel = 0; channel < 3; channel++) {
+                            const delta = expandedDelta.data[srcIndex + channel] - 128;
+                            image.imageData.data[dstIndex + channel] = Math.max(
+                                0,
+                                Math.min(
+                                    255,
+                                    image.imageData.data[dstIndex + channel] + delta
+                                )
+                            );
+                        }
+                    }
                 }
             }
 
@@ -807,7 +1046,7 @@
             return {
                 name: file.name,
                 id: bytesToHex(id),
-                copies: layout.copies,
+                copiesPerTile: totalCopies / 4,
                 blob: await canvasToPng(image.canvas)
             };
         }
@@ -1015,7 +1254,7 @@
                     item.className = "result-item";
                     item.textContent =
                         `${result.name} — ID: ${result.id} ` +
-                        `(${result.copies} Wiederholung(en))`;
+                        `(4 Bereiche, je ca. ${result.copiesPerTile} Wiederholungen)`;
                     output.append(item);
                 }
 
@@ -1086,57 +1325,85 @@
             button.disabled = true;
 
             try {
-                status.textContent = "Analysiere Bild …";
+                status.textContent = "Analysiere vier Bildbereiche …";
 
                 const image = await loadImageFile(file);
-                const layout = makeWatermarkLayout(
-                    image.width,
-                    image.height
-                );
-                const bitVotes = new Uint16Array(CODEWORD_BITS);
 
-                for (let copy = 0; copy < layout.copies; copy++) {
-                    for (let bitIndex = 0; bitIndex < CODEWORD_BITS; bitIndex++) {
-                        const [blockX, blockY] =
-                            layout.position(copy, bitIndex);
+                if (image.width < 256 || image.height < 256) {
+                    throw new Error(
+                        "Bild zu klein für die zuverlässige Analyse."
+                    );
+                }
 
-                        bitVotes[bitIndex] += readOrWriteBit(
-                            image.imageData.data,
-                            image.width,
-                            blockX,
-                            blockY,
-                            false,
-                            0
+                const results = [];
+
+                for (const tile of imageTiles(image.width, image.height)) {
+                    try {
+                        const size = canonicalTileSize(tile.width, tile.height);
+                        const normalized = makeTileCanvas(
+                            image.canvas,
+                            tile,
+                            size.width,
+                            size.height
                         );
+                        const imageData = normalized.context.getImageData(
+                            0,
+                            0,
+                            size.width,
+                            size.height
+                        );
+
+                        results.push(
+                            decodeCodeword(imageData, size.width, size.height)
+                        );
+                    } catch (error) {
+                        // Ein beschädigter oder beschnittener Bereich soll
+                        // die übrigen drei Bereiche nicht verhindern.
                     }
                 }
 
-                const bits = Array.from(
-                    bitVotes,
-                    votes => votes > layout.copies / 2 ? 1 : 0
-                );
-                const receivedCodeword = bitsToBytes(bits);
-                const decoded = reedSolomonDecode(receivedCodeword);
-                const id = bytesToHex(
-                    decoded.codeword.slice(0, DATA_BYTES)
-                );
+                if (results.length === 0) {
+                    throw new Error(
+                        "In keinem Bildbereich wurde ein gültiges " +
+                        "Wasserzeichen mit passender Prüfsumme gefunden."
+                    );
+                }
+
+                const counts = new Map();
+                for (const result of results) {
+                    counts.set(result.id, (counts.get(result.id) || 0) + 1);
+                }
+
+                const [id, matchingTiles] = Array.from(counts.entries())
+                    .sort((a, b) => b[1] - a[1])[0];
+
+                if (results.length > 1 && matchingTiles < 2) {
+                    throw new Error(
+                        "Die Bildbereiche liefern widersprüchliche Ergebnisse."
+                    );
+                }
 
                 const result = document.createElement("p");
-                result.textContent = `ID gefunden: ${id}`;
+                result.textContent =
+                    `ID gefunden: ${id} (${matchingTiles} Bereich(e) stimmen überein).`;
                 output.append(result);
 
-                if (decoded.corrected > 0) {
+                const corrected = results
+                    .filter(item => item.id === id)
+                    .reduce((sum, item) => sum + item.corrected, 0);
+
+                if (corrected > 0) {
                     const detail = document.createElement("p");
                     detail.className = "muted";
                     detail.textContent =
-                        `RS-Decoder hat ${decoded.corrected} fehlerhafte ` +
-                        "Bytes korrigiert.";
+                        `RS-Decoder hat insgesamt ${corrected} fehlerhafte ` +
+                        "Bytes in den übereinstimmenden Bereichen korrigiert.";
                     output.append(detail);
                 }
 
                 output.hidden = false;
                 status.textContent =
-                    `${layout.copies} Wiederholung(en) ausgewertet.`;
+                    `${results.length} von 4 Bildbereichen konnten gelesen werden.`;
                 status.classList.add("ok");
             } catch (error) {
                 status.textContent =
